@@ -11,7 +11,6 @@ node_modules
 .env.development.local
 .env.test.local
 .env.production.local
-
 # Testing
 coverage
 
@@ -27,6 +26,8 @@ out/
 build
 dist
 
+git rm -r --cached .vscode
+git commit -m "Remove .vscode from tracking"
 
 # Debug
 npm-debug.log*
