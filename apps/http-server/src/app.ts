@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express, { Application } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -13,11 +14,11 @@ app.use(express.static("public"));
 app.use(cookieParser());
 
 verifyMailer();
-//importing routes
-// import userRouter from "./routes/user.routes.js";
+// importing routes
+import { userRouter } from "./routes/user.route"
 
-//using routes
-// app.use("/api/v1/users", userRouter);
+// using routes
+app.use("/api/v1/users", userRouter);
 
 
 app.use(globalErrorHandler);

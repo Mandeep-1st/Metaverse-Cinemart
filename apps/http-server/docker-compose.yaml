@@ -5,12 +5,18 @@ services:
     image: mongo:latest
     container_name: mongo-dev
     ports:
-      - "27017:27017"
+      - "27018:27017"
     volumes:
       - mongo_data:/data/db
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: mysecretpassword
+
+  redis:
+    image: redis:alpine
+    container_name: redis-dev
+    ports:
+      - "6379:6379"
 
 volumes:
   mongo_data:

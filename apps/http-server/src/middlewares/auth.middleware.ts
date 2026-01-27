@@ -12,7 +12,7 @@ interface TokenPayload extends JwtPayload {
 }
 
 
-const verifyJwt = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+const verifyJwt = asyncHandler(async (req: any, res: Response, next: NextFunction) => {
 
     const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "");
 

@@ -39,8 +39,7 @@ const UserSchema: Schema<User> = new Schema({
     },
     password: {
         type: String,
-        required: true,
-        match: [/^.{8,16}$/, "Password must be 8 to 16 characters"]
+        required: true
     },
     avatar: {
         type: String,

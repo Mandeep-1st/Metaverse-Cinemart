@@ -4,8 +4,14 @@ import { connectDB } from '@repo/db'
 const PORT = process.env.SERVER_VAR_PORT || 8001
 import { app } from './app'
 
+const dbUrl = process.env.SERVER_VAR_DATABASE_URL;
 
-connectDB(process.env.SERVER_VAR_DATABASE_URL!)
+if (!dbUrl) {
+    console.error("FATAL: SERVER_VAR_DATABASE_URL is not defined in .env");
+    process.exit(1);
+}
+
+connectDB(dbUrl)
     .then(() => {
         app.listen(PORT, () => {
             console.log("Connection Successful with app at Port:", PORT)
