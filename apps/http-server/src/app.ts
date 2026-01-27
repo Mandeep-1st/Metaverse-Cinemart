@@ -2,6 +2,7 @@ import express, { Application } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { globalErrorHandler } from "./utils/globalErrorHandler";
+import { verifyMailer } from "./utils/nodemailer";
 
 const app: Application = express();
 
@@ -11,6 +12,7 @@ app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(express.static("public"));
 app.use(cookieParser());
 
+verifyMailer();
 //importing routes
 // import userRouter from "./routes/user.routes.js";
 
