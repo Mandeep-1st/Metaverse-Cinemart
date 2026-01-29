@@ -9,6 +9,7 @@ export const connectDB = async (uri: string) => {
 
     try {
         const db = await mongoose.connect(uri);
+
         isConnected = db.connections[0]?.readyState === 1;
         console.log("Mongodb Connected")
 

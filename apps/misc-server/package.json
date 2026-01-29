@@ -1,0 +1,29 @@
+{
+  "name": "misc-server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "nodemon --exec ts-node src/index.ts"
+  },
+  "dependencies": {
+    "@types/express": "^5.0.6",
+    "axios": "^1.13.4",
+    "dotenv": "^16.4.5",
+    "express": "^5.2.1",
+    "ioredis": "^5.4.0",
+    "nodemailer": "^7.0.12"
+  },
+  "devDependencies": {
+    "@repo/db": "workspace:*",
+    "@repo/types": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "^20.0.0",
+    "@types/nodemailer": "^7.0.9",
+    "nodemon": "^3.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  },
+  "author": "",
+  "license": "ISC"
+}
