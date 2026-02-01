@@ -16,10 +16,10 @@ app.use(cookieParser());
 verifyMailer();
 // importing routes
 import { userRouter } from "./routes/user.route"
-
+import { movieRouter } from "./routes/movie.route"
 // using routes
 app.use("/api/v1/users", userRouter);
-
+app.use("/api/v1/movies", movieRouter)
 
 app.use(globalErrorHandler);
 export { app };
