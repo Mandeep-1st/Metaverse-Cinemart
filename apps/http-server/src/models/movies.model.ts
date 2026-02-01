@@ -10,6 +10,7 @@ const ImageSchema = new Schema({
 
 const VideoSchema = new Schema({
     key: { type: String, required: true },
+    url: { type: String },
     site: { type: String, required: true },
 }, { _id: false });
 
@@ -36,6 +37,7 @@ const CrewSchema = new Schema({
     name: { type: String, required: true },
     job: { type: String, required: true },
     department: { type: String, required: true },
+    profile_path: { type: String },
 }, { _id: false });
 
 const DetailsSchema = new Schema({
@@ -63,12 +65,12 @@ export interface IMovie extends Document {
     title: string;
     overview: string;
     images: { poster: string; backdrop?: string; logo?: string };
-    video?: { key: string; site: string };
+    video?: { key: string; site: string, url: string };
     genres: { id: number; name: string }[];
     keywords: { id: number; name: string }[];
     credits: {
         cast: { id: number; name: string; character: string; profile_path?: string; order?: number }[];
-        crew: { id: number; name: string; job: string; department: string }[];
+        crew: { id: number; name: string; job: string; department: string, profile_path: string }[];
     };
     details: { runtime?: number; release_date?: Date; status: string; original_language?: string };
     metrics: { popularity?: number; vote_average?: number; vote_count?: number };

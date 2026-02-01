@@ -1,5 +1,6 @@
 import axios from "axios";
 import { MovieModel } from "../models/movies.model";
+import https from 'https'
 import {
     InvertedGenreModel,
     InvertedCastModel,
@@ -12,13 +13,16 @@ const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
 export class TMDBService {
 
+    private static agent = new https.Agent({ family: 4 })
     private static getOptions(params?: object) {
         return {
             headers: {
                 accept: "application/json",
                 Authorization: `Bearer ${TMDB_TOKEN}`
             },
-            params: params
+            httpsAgent: this.agent,
+            params: params,
+            timeout: 10000
         }
     }
 
@@ -56,7 +60,7 @@ export class TMDBService {
         }).select("tmdb_id title images.poster metrics.vote_average");
 
         if (localResults.length > 5) {
-            console.log("⚡ Serving search from Cache (DB)");
+            console.log("Serving search from Cache");
             return localResults;
         }
 
@@ -66,9 +70,9 @@ export class TMDBService {
         const movies = response.data.results;
 
         // Ingest movies from search results in the background
-        movies.map((m: any) => this.fetchAndIngestMovie(m.id)).catch((error: any) =>
-            console.error("Error ingesting search results", error)
-        );
+
+        Promise.all(movies.map((m: any) => this.fetchAndIngestMovie(m.id)))
+            .catch((error: any) => console.error("Error ingesting search results", error));
         return response.data.results.map((m: any) => ({
             tmdb_id: m.id,
             title: m.title,
@@ -81,6 +85,7 @@ export class TMDBService {
         // A. Check DB
         const existingMovie = await MovieModel.findOne({ tmdb_id: tmdbId });
         if (existingMovie) {
+            console.log("Movie already exists")
             return existingMovie;
         }
 
@@ -145,27 +150,36 @@ export class TMDBService {
 
     private static transformData(data: any) {
         // we will normalise the data here. data.credits (can fail) 
+        //we need base urls because tmdb sends half baked things 
+        const IMAGE_BASE_URL = "https://image.tmdb.org/t/p/original"; // High quality
+        const YOUTUBE_BASE_URL = "https://www.youtube.com/watch?v=";
+
         return {
             tmdb_id: data.id,
             title: data.title,
             overview: data.overview,
             images: {
-                poster: data.poster_path,
-                backdrop: data.backdrop_path,
+                poster: data.poster_path ? `${IMAGE_BASE_URL}${data.poster_path}` : null,
+                backdrop: data.backdrop_path ? `${IMAGE_BASE_URL}${data.backdrop_path}` : null,
                 logo: data.images?.logos?.[0]?.file_path
+                    ? `${IMAGE_BASE_URL}${data.images.logos[0].file_path}`
+                    : null
             },
             video: data.videos?.results?.[0] ? {
                 key: data.videos.results[0].key,
+                url: `${YOUTUBE_BASE_URL}${data.videos.results[0].key}`,
                 site: data.videos.results[0].site
             } : undefined,
+
             genres: data.genres || [],
             keywords: data.keywords?.keywords || [],
+
             credits: {
                 cast: (data.credits?.cast || []).map((c: any) => ({
                     id: c.id,
                     name: c.name,
                     character: c.character,
-                    profile_path: c.profile_path,
+                    profile_path: c.profile_path ? `${IMAGE_BASE_URL}${c.profile_path}` : null,
                     order: c.order
                 })),
                 crew: (data.credits?.crew || [])
@@ -174,15 +188,18 @@ export class TMDBService {
                         id: c.id,
                         name: c.name,
                         job: c.job,
-                        department: c.department
+                        department: c.department,
+                        profile_path: c.profile_path ? `${IMAGE_BASE_URL}${c.profile_path}` : null
                     }))
             },
+
             details: {
                 runtime: data.runtime,
                 release_date: data.release_date,
                 status: data.status,
                 original_language: data.original_language
             },
+
             metrics: {
                 popularity: data.popularity,
                 vote_average: data.vote_average,

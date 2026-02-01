@@ -13,10 +13,10 @@ if (!dbUrl) {
 
 connectDB(dbUrl)
     .then(() => {
-        app.listen(PORT, () => {
+        app.listen(8001, () => {
             console.log("Connection Successful with app at Port:", PORT)
         }).on("error", (error: any) => {
-            console.log("App is not able to connect with the database.")
+            console.log("App is not able to connect with the database.", error)
         })
     })
     .catch((err) => {
