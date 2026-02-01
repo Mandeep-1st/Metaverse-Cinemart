@@ -7,10 +7,20 @@ import {
     InvertedKeywordModel
 } from "../models/invertedIndex.model";
 
-const TMDB_API_KEY = process.env.SERVER_VAR_TMDB_API_KEY;
+const TMDB_TOKEN = process.env.SERVER_VAR_TMDB_ACCESS_TOKEN;
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
 export class TMDBService {
+
+    private static getOptions(params?: object) {
+        return {
+            headers: {
+                accept: "application/json",
+                Authorization: `Bearer ${TMDB_TOKEN}`
+            },
+            params: params
+        }
+    }
 
     // 1. Seeder , we will call this once or whenever we like.
     static async seedPopularMovies(pages: number = 10) {
@@ -19,9 +29,7 @@ export class TMDBService {
 
         for (let page = 1; page <= pages; page++) {
             try {
-                const response = await axios.get(`${TMDB_BASE_URL}/movie/popular`, {
-                    params: { api_key: TMDB_API_KEY, page: page }
-                });
+                const response = await axios.get(`${TMDB_BASE_URL}/movie/popular`, this.getOptions({ page: page }));
 
                 const movies = response.data.results;
 
@@ -53,9 +61,7 @@ export class TMDBService {
         }
 
         console.log("Searching TMDB for:", query);
-        const response = await axios.get(`${TMDB_BASE_URL}/search/movie`, {
-            params: { api_key: TMDB_API_KEY, query: query }
-        });
+        const response = await axios.get(`${TMDB_BASE_URL}/search/movie`, this.getOptions({ query: query }));
 
         const movies = response.data.results;
 
@@ -88,12 +94,9 @@ export class TMDBService {
         try {
             // Fetch Details + Credits + Keywords in one go using 'append_to_response'
             // 'append_to_response' :- Fetch normal details with the extras 
-            const { data } = await axios.get(`${TMDB_BASE_URL}/movie/${tmdbId}`, {
-                params: {
-                    api_key: TMDB_API_KEY,
-                    append_to_response: "credits,keywords,images,videos"
-                }
-            });
+            const { data } = await axios.get(`${TMDB_BASE_URL}/movie/${tmdbId}`, this.getOptions({
+                append_to_response: "credits,keywords,images,videos"
+            }));
 
             const movieDoc = this.transformData(data);
 
