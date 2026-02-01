@@ -9,7 +9,7 @@ export interface IInvertedIndex extends Document {
 
 const InvertedSchema = new Schema<IInvertedIndex>({
     _id: { type: Number, required: true }, // we need the id from tmdb so we override it.
-    name: { type: String, required: true },
+    name: { type: String, required: true }, //action, nolan
     movies: { type: [Number], default: [] } // tmdb_id of movies
 });
 

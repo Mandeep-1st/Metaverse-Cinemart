@@ -1,7 +1,6 @@
 import mongoose, { Document, Schema } from "mongoose";
 import bcrypt from 'bcrypt';
 import jwt, { Secret, SignOptions } from "jsonwebtoken";
-
 export interface IUser extends Document {
     username: string,
     email: string,

@@ -79,18 +79,20 @@ export class TMDBService {
             images: { poster: m.poster_path },
             metrics: { vote_average: m.vote_average }
         }));
+
     }
+
 
     static async getMovieOrFetch(tmdbId: string) {
         // A. Check DB
         const existingMovie = await MovieModel.findOne({ tmdb_id: tmdbId });
         if (existingMovie) {
-            console.log("Movie already exists")
+            console.log("Movie should exists")
             return existingMovie;
         }
 
         // B. If Not in DB? Fetch, Ingest.
-        console.log("Movie not in DB. Fetching from TMDB...");
+        console.log("Movie not in DB. Fetching from TMDB......");
         return await this.fetchAndIngestMovie(tmdbId);
     }
 
