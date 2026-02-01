@@ -2,7 +2,7 @@ import mongoose, { Document, Schema } from "mongoose";
 import bcrypt from 'bcrypt';
 import jwt, { Secret, SignOptions } from "jsonwebtoken";
 
-export interface User extends Document {
+export interface IUser extends Document {
     username: string,
     email: string,
     fullName: string,
@@ -18,7 +18,7 @@ export interface User extends Document {
     isPasswordCorrect: (password: string) => any,
 }
 
-const UserSchema: Schema<User> = new Schema({
+const UserSchema: Schema<IUser> = new Schema({
     email: {
         type: String,
         required: [true, "Email is required"],
@@ -73,7 +73,7 @@ const UserSchema: Schema<User> = new Schema({
         timestamps: true,
     })
 
-UserSchema.pre<User>("save", async function () {
+UserSchema.pre<IUser>("save", async function () {
     if (!this.isModified("password")) return;
 
     if (this.password) {
@@ -112,4 +112,4 @@ UserSchema.methods.generateAccessToken = function () {
 }
 
 
-export const UserModel = (mongoose.models.User as mongoose.Model<User>) || mongoose.model<User>("User", UserSchema)
+export const UserModel = (mongoose.models.User as mongoose.Model<IUser>) || mongoose.model<IUser>("User", UserSchema)
