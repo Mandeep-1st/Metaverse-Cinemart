@@ -95,4 +95,4 @@ const MovieSchema = new Schema<IMovie>(
     { timestamps: true }
 );
 
-export const MovieModel = mongoose.models.Movie || mongoose.model<IMovie>("Movie", MovieSchema);
+export const MovieModel = mongoose.models.Movie as mongoose.Model<IMovie> || mongoose.model<IMovie>("Movie", MovieSchema) as mongoose.Model<IMovie>;
