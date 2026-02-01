@@ -7,7 +7,7 @@ import {
     InvertedKeywordModel
 } from "../models/invertedIndex.model";
 
-const TMDB_API_KEY = process.env.TMDB_API_KEY;
+const TMDB_API_KEY = process.env.SERVER_VAR_TMDB_API_KEY;
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
 export class TMDBService {
