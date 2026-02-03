@@ -1,2 +1,2 @@
-/* This pulls in our presets (Brutalist, Tangerine, etc.) and v4 theme */
-@import "@repo/tailwind-config/index.css";
+@import "@repo/ui/globals.css";
+@source "../../../packages/ui";
