@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose, { Schema, Document, Model } from "mongoose";
 
 // Interface for all Inverted Index types
 export interface IInvertedIndex extends Document {
@@ -14,7 +14,8 @@ const InvertedSchema = new Schema<IInvertedIndex>({
 });
 
 // We need 4 separate models but they share same structure.
-export const InvertedGenreModel = mongoose.models.InvertedGenre || mongoose.model<IInvertedIndex>("InvertedGenre", InvertedSchema);
-export const InvertedCastModel = mongoose.models.InvertedCast || mongoose.model<IInvertedIndex>("InvertedCast", InvertedSchema);
-export const InvertedDirectorModel = mongoose.models.InvertedDirector || mongoose.model<IInvertedIndex>("InvertedDirector", InvertedSchema);
-export const InvertedKeywordModel = mongoose.models.InvertedKeyword || mongoose.model<IInvertedIndex>("InvertedKeyword", InvertedSchema);
+export const InvertedGenreModel = (mongoose.models.InvertedGenre || mongoose.model<IInvertedIndex>("InvertedGenre", InvertedSchema)) as Model<IInvertedIndex>;
+export const InvertedCastModel = (mongoose.models.InvertedCast || mongoose.model<IInvertedIndex>("InvertedCast", InvertedSchema)) as Model<IInvertedIndex>;
+export const InvertedDirectorModel = (mongoose.models.InvertedDirector || mongoose.model<IInvertedIndex>("InvertedDirector", InvertedSchema)) as Model<IInvertedIndex>;
+export const InvertedKeywordModel = (mongoose.models.InvertedKeyword || mongoose.model<IInvertedIndex>("InvertedKeyword", InvertedSchema)) as Model<IInvertedIndex>;
+
