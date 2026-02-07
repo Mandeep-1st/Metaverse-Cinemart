@@ -3,9 +3,7 @@ import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError } from "../utils/apiError";
 import { TMDBService } from "../services/tmdb.services";
 import { PreferenceService } from "../services/preference.service";
-import { SeederService } from "../services/seeder.service";
 import { ApiResponse } from "../utils/apiResponse";
-import { UserPreferenceModel } from "../models/userPreference.model";
 import { InvertedGenreModel, InvertedCastModel, InvertedDirectorModel } from "../models/invertedIndex.model";
 import { MovieModel } from "../models/movies.model";
 
@@ -44,8 +42,7 @@ const getMovieDetails = asyncHandler(async (req: any, res: Response) => {
     res.status(200).json(new ApiResponse(200, movie, "Movie details fetched successfully"))
 })
 
-//post -> api/v1/movies/seed
-
+//post -> api/v1/movies/seed (ADMIN ONLY)
 const seedInDatabase = asyncHandler(async (req: any, res: Response) => {
     if (req.user.role != "admin") {
         return res.status(401).json(
@@ -53,9 +50,10 @@ const seedInDatabase = asyncHandler(async (req: any, res: Response) => {
         )
     }
 
-    //not awaiting because not wanted to block the thread.
+    // Trigger background seeding of popular movies (5 pages)
     TMDBService.seedPopularMovies(5).catch(err => console.error(err))
-    return res.status(200).json(new ApiResponse(200, {}, "Seeding started in background"))
+
+    return res.status(200).json(new ApiResponse(200, {}, "Production seeding started in background"))
 })
 
 //post -> /movies/preference
@@ -74,7 +72,6 @@ const createUserPreference = asyncHandler(async (req: any, res: Response) => {
             new ApiResponse(201, newPreference, "User preference created successfully")
         );
     } catch (error: any) {
-        // Passing specific ApiErrors through, or wrapping unexpected ones
         if (error instanceof ApiError) throw error;
 
         console.error("Error creating preference:", error);
@@ -105,42 +102,25 @@ const getRecommendedMovies = asyncHandler(async (req: any, res: Response) => {
         throw new ApiError(400, "username parameter is required");
     }
 
-    console.log("\n========== RECOMMENDATION ANALYSIS ==========");
-    console.log(`Username: ${username}`);
-
     // Step 1: Fetch user preferences
     const userPreference = await PreferenceService.getUserPreference(username);
     const { preference } = userPreference;
 
     // Step 2: Get top 10 from each category based on score
-    const topGenres = [...preference.genre]
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 10);
-
-    const topCast = [...preference.cast]
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 10);
-
-    const topDirectors = [...preference.director]
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 10);
-
-    console.log("\n--- USER PREFERENCES (Top 10 each) ---");
-    console.log("Top Genres:", topGenres.map(g => `${g.id}(score:${g.score})`).join(", "));
-    console.log("Top Cast:", topCast.map(c => `${c.id}(score:${c.score})`).join(", "));
-    console.log("Top Directors:", topDirectors.map(d => `${d.id}(score:${d.score})`).join(", "));
+    const topGenres = [...preference.genre].sort((a, b) => b.score - a.score).slice(0, 10);
+    const topCast = [...preference.cast].sort((a, b) => b.score - a.score).slice(0, 10);
+    const topDirectors = [...preference.director].sort((a, b) => b.score - a.score).slice(0, 10);
 
     // Create score maps for quick lookup
     const genreScoreMap = new Map(topGenres.map(g => [g.id, g.score]));
     const castScoreMap = new Map(topCast.map(c => [c.id, c.score]));
     const directorScoreMap = new Map(topDirectors.map(d => [d.id, d.score]));
 
-    // Step 3: Query inverted indexes to find movies containing these preferences
+    // Step 3: Query inverted indexes
     const genreIds = topGenres.map(g => parseInt(g.id)).filter(id => !isNaN(id));
     const castIds = topCast.map(c => parseInt(c.id)).filter(id => !isNaN(id));
     const directorIds = topDirectors.map(d => parseInt(d.id)).filter(id => !isNaN(id));
 
-    // Fetch from inverted indexes in parallel
     const [genreIndexes, castIndexes, directorIndexes] = await Promise.all([
         InvertedGenreModel.find({ _id: { $in: genreIds } }),
         InvertedCastModel.find({ _id: { $in: castIds } }),
@@ -157,12 +137,7 @@ const getRecommendedMovies = asyncHandler(async (req: any, res: Response) => {
 
     const addMovieScore = (movieId: number, score: number, category: 'genre' | 'cast' | 'director') => {
         if (!movieScores.has(movieId)) {
-            movieScores.set(movieId, {
-                totalScore: 0,
-                genreMatches: 0,
-                castMatches: 0,
-                directorMatches: 0
-            });
+            movieScores.set(movieId, { totalScore: 0, genreMatches: 0, castMatches: 0, directorMatches: 0 });
         }
         const movieData = movieScores.get(movieId)!;
         movieData.totalScore += score;
@@ -171,22 +146,9 @@ const getRecommendedMovies = asyncHandler(async (req: any, res: Response) => {
         else if (category === 'director') movieData.directorMatches++;
     };
 
-    // Process all indexes
-    genreIndexes.forEach(idx => {
-        const score = genreScoreMap.get(idx._id.toString()) || 0;
-        idx.movies.forEach(mId => addMovieScore(mId, score, 'genre'));
-    });
-    castIndexes.forEach(idx => {
-        const score = castScoreMap.get(idx._id.toString()) || 0;
-        idx.movies.forEach(mId => addMovieScore(mId, score, 'cast'));
-    });
-    directorIndexes.forEach(idx => {
-        const score = directorScoreMap.get(idx._id.toString()) || 0;
-        idx.movies.forEach(mId => addMovieScore(mId, score, 'director'));
-    });
-
-    console.log(`\n--- SCORING SUMMARY ---`);
-    console.log(`Total movies scored: ${movieScores.size}`);
+    genreIndexes.forEach(idx => idx.movies.forEach(mId => addMovieScore(mId, genreScoreMap.get(idx._id.toString()) || 0, 'genre')));
+    castIndexes.forEach(idx => idx.movies.forEach(mId => addMovieScore(mId, castScoreMap.get(idx._id.toString()) || 0, 'cast')));
+    directorIndexes.forEach(idx => idx.movies.forEach(mId => addMovieScore(mId, directorScoreMap.get(idx._id.toString()) || 0, 'director')));
 
     // Step 5: Sort movies by total score and get top 30
     const sortedMovieEntries = Array.from(movieScores.entries())
@@ -200,7 +162,6 @@ const getRecommendedMovies = asyncHandler(async (req: any, res: Response) => {
     }
 
     // Step 6: Fetch actual movie details
-    // We import MovieModel if not imported, wait, MovieModel is imported.
     const movies = await MovieModel.find({ tmdb_id: { $in: sortedMovieIds } });
     const movieMap = new Map(movies.map((m: any) => [m.tmdb_id, m]));
 
@@ -208,13 +169,7 @@ const getRecommendedMovies = asyncHandler(async (req: any, res: Response) => {
         .map(movieId => {
             const movie = movieMap.get(movieId);
             const scoreData = movieScores.get(movieId);
-            if (movie && scoreData) {
-                return {
-                    movie,
-                    recommendationScore: scoreData
-                };
-            }
-            return null;
+            return (movie && scoreData) ? { movie, recommendationScore: scoreData } : null;
         })
         .filter(item => item !== null);
 
@@ -229,47 +184,4 @@ const getRecommendedMovies = asyncHandler(async (req: any, res: Response) => {
     );
 });
 
-// POST -> /movies/seed-test
-const seedTestData = asyncHandler(async (req: any, res: Response) => {
-    // 1. Seed Movies
-    const stats = await SeederService.seedTestMovies(200);
-
-    // 2. Create Dynamic Preference for Test User
-    const testUser = "seed_test_user";
-    
-    // Clear existing preference to ensure fresh dynamic generation
-    await UserPreferenceModel.deleteOne({ username: testUser });
-    
-    // Create new one
-    const userPref = await PreferenceService.createDynamicPreference(testUser);
-
-    // 3. Get Recommendations based on this new preference
-    const recommendations = await PreferenceService.getRecommendations(testUser);
-
-    return res.status(200).json(
-        new ApiResponse(200, {
-            seedingStats: stats,
-            testUser: testUser,
-            generatedPreference: {
-                topGenres: userPref.preference.genre.slice(0, 3), // Show top 3 for brevity
-                topCast: userPref.preference.cast.slice(0, 3)
-            },
-            recommendationResults: {
-                totalScored: recommendations.preferenceSummary.totalMoviesScored,
-                returned: recommendations.preferenceSummary.moviesReturned,
-                top5Recommendations: recommendations.recommendations.slice(0, 5).map(r => ({
-                    title: r.movie.title,
-                    score: r.recommendationScore.totalScore,
-                    matches: {
-                        genres: r.recommendationScore.genreMatches,
-                        cast: r.recommendationScore.castMatches,
-                        directors: r.recommendationScore.directorMatches
-                    }
-                }))
-            },
-            nextStep: "System verified! You can now use the app with this data."
-        }, "Test data seeded and full flow verified successfully!")
-    );
-});
-
-export { seedInDatabase, getMovieDetails, searchMovie, getUserPreference, createUserPreference, getRecommendedMovies, seedTestData };
+export { seedInDatabase, getMovieDetails, searchMovie, getUserPreference, createUserPreference, getRecommendedMovies };
