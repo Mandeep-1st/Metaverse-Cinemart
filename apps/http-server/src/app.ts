@@ -1,19 +1,25 @@
-import express from "express";
+import "dotenv/config";
+import express, { Application } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import { globalErrorHandler } from "./utils/globalErrorHandler";
+import { verifyMailer } from "./utils/nodemailer";
 
-const app: any = express();
+const app: Application = express();
 
-app.use(cors({ origin: process.env.CORS_ORIGIN, credentials: true }));
+app.use(cors({ origin: process.env.SERVER_VAR_CORS_ORIGIN, credentials: true }));
 app.use(express.json({ limit: "16kb" }));
 app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(express.static("public"));
 app.use(cookieParser());
 
-//importing routes
-// import userRouter from "./routes/user.routes.js";
+verifyMailer();
+// importing routes
+import { userRouter } from "./routes/user.route"
+import { movieRouter } from "./routes/movie.route"
+// using routes
+app.use("/api/v1/users", userRouter);
+app.use("/api/v1/movies", movieRouter)
 
-//using routes
-// app.use("/api/v1/users", userRouter);
-
+app.use(globalErrorHandler);
 export { app };
