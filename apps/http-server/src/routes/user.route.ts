@@ -11,5 +11,11 @@ router.route("/verifyotp").post(verifyOtp);
 router.route("/requestotp").post(requestOtp);
 router.route("/me").get(verifyJwt, me)
 router.route("/logout").get(verifyJwt, logout)
-router.route("/password-email-sent").post(passwordSentByEmail)
+router.route("/password-email-sent").post(passwordSentByEmail);
+//change-password
+//chnge-profile photo
+//avatar-change
+//feedback-provide
+//change username
+
 export { router as userRouter }

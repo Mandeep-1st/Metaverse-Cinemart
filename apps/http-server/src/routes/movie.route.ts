@@ -1,11 +1,15 @@
 import { Router } from "express";
 import {
-    createUserPreference,
     getMovieDetails,
     getRecommendedMovies,
     getUserPreference,
     searchMovie,
-    seedInDatabase
+    seedInDatabase,
+    handleWhenClicked,
+    handleWhenSearch,
+    handleWhenComment,
+    handleWhenRoom,
+    initUserPreference
 } from "../controllers/movie.controller";
 import { verifyJwt } from "../middlewares/auth.middleware";
 
@@ -19,7 +23,13 @@ router.get("/:tmdbId", verifyJwt, getMovieDetails)
 router.post("/seed", verifyJwt, seedInDatabase)
 
 // User Preference Routes
-router.post("/preference", verifyJwt, createUserPreference)
+router.post("/preference/init", verifyJwt, initUserPreference) // Smart Init
 router.get("/preference", verifyJwt, getUserPreference)
+
+// Smart Preference Interaction Routes
+router.post("/whenclicked", verifyJwt, handleWhenClicked)
+router.post("/whensearch", verifyJwt, handleWhenSearch)
+router.post("/whencomment", verifyJwt, handleWhenComment)
+router.post("/whenroom", verifyJwt, handleWhenRoom)
 
 export { router as movieRouter }
