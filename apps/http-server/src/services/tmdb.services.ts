@@ -26,33 +26,35 @@ export class TMDBService {
         }
     }
 
-    // 1. Seeder , we will call this once or whenever we like.
-    static async seedPopularMovies(pages: number = 10) {
-        console.log("Builk seeding.")
+    // 1. Seeder - Returns number of movies ingested
+    static async seedPopularMovies(pages: number = 10): Promise<number> {
+        console.log("Bulk seeding started.")
         let totalIngested = 0;
 
         for (let page = 1; page <= pages; page++) {
             try {
                 const response = await axios.get(`${TMDB_BASE_URL}/movie/popular`, this.getOptions({ page: page }));
-
                 const movies = response.data.results;
 
-                //batching to get the data in speed.
-                await Promise.all(movies.map(async (simpleMovie: any) => {
-                    // We must fetch full details because "popular" endpoint gives incomplete data
-                    await this.fetchAndIngestMovie(simpleMovie.id);
+                // Process batch
+                const results = await Promise.all(movies.map(async (simpleMovie: any) => {
+                    const doc = await this.fetchAndIngestMovie(simpleMovie.id);
+                    return doc ? 1 : 0;
                 }));
 
-                totalIngested += movies.length;
-                console.log(`Page ${page} processed.`);
+                const countInPage = results.reduce((a: number, b: number) => a + b, 0);
+                totalIngested += countInPage;
+
+                console.log(`Page ${page} processed. Added ${countInPage} movies.`);
             } catch (error) {
                 console.error(`Error seeding page ${page}`, error);
             }
         }
         console.log(`Seeding Complete! Total Movies: ${totalIngested}`);
+        return totalIngested;
     }
 
-    // 2. whiele Searchjing Checks DB first, then TMDB
+    // 2. While Searching Checks DB first, then TMDB
     static async searchMovies(query: string) {
         // A. Check Local DB first
         const localResults = await MovieModel.find({
@@ -70,24 +72,22 @@ export class TMDBService {
         const movies = response.data.results;
 
         // Ingest movies from search results in the background
-
         Promise.all(movies.map((m: any) => this.fetchAndIngestMovie(m.id)))
             .catch((error: any) => console.error("Error ingesting search results", error));
+
         return response.data.results.map((m: any) => ({
             tmdb_id: m.id,
             title: m.title,
             images: { poster: m.poster_path },
             metrics: { vote_average: m.vote_average }
         }));
-
     }
-
 
     static async getMovieOrFetch(tmdbId: string) {
         // A. Check DB
         const existingMovie = await MovieModel.findOne({ tmdb_id: tmdbId });
         if (existingMovie) {
-            console.log("Movie should exists")
+            console.log("Movie should exist")
             return existingMovie;
         }
 
@@ -96,11 +96,9 @@ export class TMDBService {
         return await this.fetchAndIngestMovie(tmdbId);
     }
 
-
     private static async fetchAndIngestMovie(tmdbId: string | number) {
         try {
             // Fetch Details + Credits + Keywords in one go using 'append_to_response'
-            // 'append_to_response' :- Fetch normal details with the extras 
             const { data } = await axios.get(`${TMDB_BASE_URL}/movie/${tmdbId}`, this.getOptions({
                 append_to_response: "credits,keywords,images,videos"
             }));
@@ -114,7 +112,7 @@ export class TMDBService {
                 { upsert: true }
             );
 
-            // Update Inverted Indexes not awaitng because it can happen in background
+            // Update Inverted Indexes not awaiting because it can happen in background
             this.updateInvertedIndexes(movieDoc);
 
             return movieDoc;
@@ -144,15 +142,13 @@ export class TMDBService {
                     $setOnInsert: { name: item.name },
                     $addToSet: { movies: movieId }
                 },
-                upsert: true //only when not present already
+                upsert: true
             }
         }));
         await Model.bulkWrite(ops);
     }
 
     private static transformData(data: any) {
-        // we will normalise the data here. data.credits (can fail) 
-        //we need base urls because tmdb sends half baked things 
         const IMAGE_BASE_URL = "https://image.tmdb.org/t/p/original"; // High quality
         const YOUTUBE_BASE_URL = "https://www.youtube.com/watch?v=";
 
