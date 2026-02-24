@@ -1,15 +1,26 @@
 {
   "name": "socket-server",
   "version": "1.0.0",
-  "description": "",
+  "description": "Mediasoup Signaling and WebRTC Server",
   "main": "src/index.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "ts-node src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",
+    "@types/express": "^5.0.0",
+    "@types/ws": "^8.5.10",
     "@repo/typescript-config": "workspace:*",
-    "@repo/db": "workspace:*"
+    "@repo/db": "workspace:*",
+    "ts-node": "^10.9.2"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "ws": "^8.18.0",
+    "mediasoup": "^3.14.0",
+    "dotenv": "^16.4.5"
   },
   "keywords": [],
   "author": "",
