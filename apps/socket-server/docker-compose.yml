@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  socket-server:
+    container_name: "metaverse-mediasoup-worker"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    tty: true
+    ports:
+      # The WebSocket/Express signaling port
+      - "8000:8000"
+      # Mediasoup RTC ports for Audio/Video (Both UDP and TCP)
+      - "2000-2020:2000-2020/udp"
+      - "2000-2020:2000-2020/tcp"
+    environment:
+      - SERVER_VAR_PORT=8000
+      - SERVER_VAR_MEDIASOUP_MIN_PORT=2000
+      - SERVER_VAR_MEDIASOUP_MAX_PORT=2020
+      - SERVER_VAR_MEDIASOUP_LISTEN_IP=0.0.0.0
+      - SERVER_VAR_MEDIASOUP_ANNOUNCED_IP=127.0.0.1
+    volumes:
+      # 1. Mount the root directory for code syncing
+      - ../../:/app
+      # 2. THE MAGIC SHIELD: Prevent Windows and Linux from sharing dependencies
+      - /app/node_modules
+      - /app/apps/socket-server/node_modules
+    working_dir: /app
+    # 3. Tell the container to install its own Linux dependencies on boot
+    command: sh -c "pnpm install && pnpm run dev --filter socket-server"
