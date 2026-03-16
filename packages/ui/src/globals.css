@@ -194,7 +194,24 @@
   * {
     @apply border-border;
   }
+  
+  html {
+    /* Ensures every anchor or programmatic scroll is smooth */
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-background text-foreground;
+    /* Optional: Improves font rendering for your cinematic text */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  section {
+    /* This creates a "buffer" at the top of the screen so your 
+       content doesn't hit the very edge of the browser window 
+       when the "Get Started" button scrolls down.
+    */
+    scroll-margin-top: 2rem;
   }
 }
