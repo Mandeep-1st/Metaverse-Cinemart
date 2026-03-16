@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquare, Send, ThumbsUp, User, Clock, Star } from "lucide-react";
+import { MessageSquare, Send, ThumbsUp, Clock, Star } from "lucide-react";
 
 // 1. MOCK DATA: Replace this with your actual API fetch later
 const initialComments = [
