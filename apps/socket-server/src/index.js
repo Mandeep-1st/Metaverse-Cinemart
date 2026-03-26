@@ -1,31 +1,55 @@
-import express from 'express';
-import http from 'http';
-import * as ws from 'ws';
-import { randomUUID } from 'crypto';
-import * as mediasoup from 'mediasoup';
-import {
-    type Consumer,
-    type DtlsParameters,
-    type Producer,
-    type Router,
-    type RouterRtpCodecCapability,
-    type RtpCapabilities,
-    type WebRtcTransport,
-    type Worker
-} from 'mediasoup/types';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
-const app = express();
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = __importDefault(require("express"));
+const http_1 = __importDefault(require("http"));
+const ws = __importStar(require("ws"));
+const crypto_1 = require("crypto");
+const mediasoup = __importStar(require("mediasoup"));
+const dotenv_1 = __importDefault(require("dotenv"));
+dotenv_1.default.config();
+const app = (0, express_1.default)();
 const PORT = process.env.SERVER_VAR_PORT || 8000;
-const server = http.createServer(app);
+const server = http_1.default.createServer(app);
 const wss = new ws.WebSocketServer({ server });
-
 // Mediasoup setup
-let worker: Worker;
-
-const mediaCodecs: RouterRtpCodecCapability[] = [
+let worker;
+const mediaCodecs = [
     {
         kind: 'audio',
         mimeType: 'audio/opus',
@@ -41,33 +65,9 @@ const mediaCodecs: RouterRtpCodecCapability[] = [
         },
     },
 ];
-
-// Types
-interface roomMapType {
-    router: Router;
-    peers: Map<string, peersMapType>;
-    producers: Map<string, producerRoomObject>;
-}
-
-interface peersMapType {
-    socket: ws.WebSocket | null;
-    producers: Map<string, Producer>;
-    consumers: Map<string, Consumer>;
-    transports: {
-        senderTransport: WebRtcTransport | null;
-        receiverTransport: WebRtcTransport | null;
-    };
-}
-
-interface producerRoomObject {
-    producer: Producer;
-    ownerPeerId: string;
-}
-
 // Global State (In production, consider Redis for room state if scaling to multiple workers/servers)
-const rooms = new Map<string, roomMapType>();
-const socketRoomMap = new Map<string, string>();
-
+const rooms = new Map();
+const socketRoomMap = new Map();
 const initWorker = async () => {
     worker = await mediasoup.createWorker({
         logLevel: 'warn',
@@ -75,31 +75,24 @@ const initWorker = async () => {
         rtcMinPort: process.env.SERVER_VAR_MEDIASOUP_MIN_PORT ? Number(process.env.SERVER_VAR_MEDIASOUP_MIN_PORT) : 2000,
         rtcMaxPort: process.env.SERVER_VAR_MEDIASOUP_MAX_PORT ? Number(process.env.SERVER_VAR_MEDIASOUP_MAX_PORT) : 2020,
     });
-
     worker.on('died', () => {
         console.error('Mediasoup worker died, exiting in 2 seconds... [pid:%d]', worker.pid);
         setTimeout(() => process.exit(1), 2000);
     });
-
     console.log(`Mediasoup worker created [pid:${worker.pid}]`);
 };
-
 // Initialize worker before starting signaling server
 initWorker().catch(console.error);
-
-wss.on('connection', async (socket: ws.WebSocket) => {
-    const socketId = randomUUID();
+wss.on('connection', async (socket) => {
+    const socketId = (0, crypto_1.randomUUID)();
     console.log(`New connection: ${socketId}`);
-
     socket.on('error', (err) => {
         console.error(`Socket Error (${socketId}):`, err);
     });
-
     socket.on('close', () => {
         console.log(`Connection closed: ${socketId}`);
         handleDisconnect(socketId);
     });
-
     socket.send(JSON.stringify({
         type: "connection-success",
         data: {
@@ -107,11 +100,9 @@ wss.on('connection', async (socket: ws.WebSocket) => {
             socketId
         }
     }));
-
-    socket.on('message', async (data: ws.RawData) => {
+    socket.on('message', async (data) => {
         try {
             const DATA = JSON.parse(data.toString());
-
             // Route messages based on type
             switch (DATA.type) {
                 case "join-room":
@@ -151,21 +142,19 @@ wss.on('connection', async (socket: ws.WebSocket) => {
                 default:
                     console.warn(`Unknown message type: ${DATA.type}`);
             }
-        } catch (error) {
+        }
+        catch (error) {
             console.error("Error handling message:", error);
         }
     });
 });
-
 // --- Handlers ---
-
-const handleDisconnect = (socketId: string) => {
+const handleDisconnect = (socketId) => {
     const peerRoomId = socketRoomMap.get(socketId);
-    if (!peerRoomId) return;
-
+    if (!peerRoomId)
+        return;
     const peerRoom = rooms.get(peerRoomId);
     const peer = peerRoom?.peers.get(socketId);
-
     // Notify others that producer left
     peer?.producers.forEach((eachProducer) => {
         peerRoom?.peers.forEach((eachPeer, eachPeerId) => {
@@ -177,7 +166,6 @@ const handleDisconnect = (socketId: string) => {
             }
         });
     });
-
     // Cleanup resources
     peer?.consumers.forEach((c) => c.close());
     peer?.producers.forEach((p) => {
@@ -186,10 +174,8 @@ const handleDisconnect = (socketId: string) => {
     });
     peer?.transports.senderTransport?.close();
     peer?.transports.receiverTransport?.close();
-
     peerRoom?.peers.delete(socketId);
     socketRoomMap.delete(socketId);
-
     // Notify remaining peers so they can remove the stale avatar
     peerRoom?.peers.forEach((eachPeer) => {
         if (eachPeer.socket?.readyState === ws.OPEN) {
@@ -199,19 +185,17 @@ const handleDisconnect = (socketId: string) => {
             }));
         }
     });
-
     if (peerRoom?.peers.size === 0) {
         console.log(`Room empty, closing router: ${peerRoomId}`);
         peerRoom.router.close();
         rooms.delete(peerRoomId);
     }
 };
-
-const handleJoinRoom = async (DATA: any, socketId: string, socket: ws.WebSocket) => {
+const handleJoinRoom = async (DATA, socketId, socket) => {
     const roomId = DATA.data.roomId;
-
     if (!rooms.has(roomId)) {
-        if (!worker) return;
+        if (!worker)
+            return;
         console.log(`Creating new room: ${roomId}`);
         rooms.set(roomId, {
             router: await worker.createRouter({ mediaCodecs }),
@@ -219,23 +203,19 @@ const handleJoinRoom = async (DATA: any, socketId: string, socket: ws.WebSocket)
             producers: new Map()
         });
     }
-
-    const room = rooms.get(roomId)!;
+    const room = rooms.get(roomId);
     room.peers.set(socketId, {
         socket: socket,
         producers: new Map(),
         consumers: new Map(),
         transports: { senderTransport: null, receiverTransport: null }
     });
-
     socketRoomMap.set(socketId, roomId);
-
     // Send back existing producers in the room
     const producersList = Array.from(room.producers.entries()).map(([producerId, producerObj]) => ({
         producerId,
         kind: producerObj.producer.kind
     }));
-
     socket.send(JSON.stringify({
         type: 'room-join-request',
         data: {
@@ -244,40 +224,34 @@ const handleJoinRoom = async (DATA: any, socketId: string, socket: ws.WebSocket)
         },
         requestId: DATA.requestId
     }));
-
     socket.send(JSON.stringify({
         type: "existing-producers",
         data: producersList,
         roomId: roomId
     }));
 };
-
-const handleGetRtpCapabilities = (socketId: string, socket: ws.WebSocket, requestId: string) => {
+const handleGetRtpCapabilities = (socketId, socket, requestId) => {
     const roomId = socketRoomMap.get(socketId);
-    const rtpCapabilities = rooms.get(roomId!)?.router.rtpCapabilities;
-
+    const rtpCapabilities = rooms.get(roomId)?.router.rtpCapabilities;
     socket.send(JSON.stringify({
         data: rtpCapabilities,
         requestId: requestId
     }));
 };
-
-const handleCreateWebRtcTransportWrapper = async (DATA: any, socketId: string, socket: ws.WebSocket) => {
-    const peer = rooms.get(socketRoomMap.get(socketId)!)?.peers.get(socketId);
+const handleCreateWebRtcTransportWrapper = async (DATA, socketId, socket) => {
+    const peer = rooms.get(socketRoomMap.get(socketId))?.peers.get(socketId);
     const transport = await createWebRtcTransport(socketId, socket, DATA.requestId);
-
-    if (!transport) return;
-
+    if (!transport)
+        return;
     if (DATA.data.sender) {
-        peer!.transports.senderTransport = transport;
-    } else {
-        peer!.transports.receiverTransport = transport;
+        peer.transports.senderTransport = transport;
+    }
+    else {
+        peer.transports.receiverTransport = transport;
     }
 };
-
-const createWebRtcTransport = async (socketId: string, socket: ws.WebSocket, requestId: string) => {
+const createWebRtcTransport = async (socketId, socket, requestId) => {
     try {
-
         const webRtcTransport_options = {
             listenIps: [
                 {
@@ -289,18 +263,15 @@ const createWebRtcTransport = async (socketId: string, socket: ws.WebSocket, req
             enableTcp: true,
             preferUdp: true
         };
-
         const roomId = socketRoomMap.get(socketId);
-        const router = rooms.get(roomId!)?.router;
-
-        if (!router) throw new Error("Router not found");
-
+        const router = rooms.get(roomId)?.router;
+        if (!router)
+            throw new Error("Router not found");
         const transport = await router.createWebRtcTransport(webRtcTransport_options);
-
         transport.on('dtlsstatechange', dtlsState => {
-            if (dtlsState === 'closed') transport.close();
+            if (dtlsState === 'closed')
+                transport.close();
         });
-
         socket.send(JSON.stringify({
             data: {
                 id: transport.id,
@@ -310,44 +281,40 @@ const createWebRtcTransport = async (socketId: string, socket: ws.WebSocket, req
             },
             requestId: requestId
         }));
-
         return transport;
-    } catch (error: any) {
+    }
+    catch (error) {
         console.error("Create transport error:", error);
         socket.send(JSON.stringify({ data: { error: error.message }, requestId }));
     }
 };
-
-const handleTransportConnect = async (isSender: boolean, socketId: string, requestId: string, dtlsParameters: DtlsParameters, socket: ws.WebSocket) => {
-    const peer = rooms.get(socketRoomMap.get(socketId)!)?.peers.get(socketId);
-
+const handleTransportConnect = async (isSender, socketId, requestId, dtlsParameters, socket) => {
+    const peer = rooms.get(socketRoomMap.get(socketId))?.peers.get(socketId);
     try {
         if (isSender) {
             await peer?.transports.senderTransport?.connect({ dtlsParameters });
-        } else {
+        }
+        else {
             await peer?.transports.receiverTransport?.connect({ dtlsParameters });
         }
         socket.send(JSON.stringify({ requestId, data: { success: true } }));
-    } catch (error) {
+    }
+    catch (error) {
         socket.send(JSON.stringify({ requestId, data: { error: "Failed to connect transport" } }));
     }
 };
-
-const handleProduceTransport = async (data: any, socket: ws.WebSocket, socketId: string, requestId: string) => {
+const handleProduceTransport = async (data, socket, socketId, requestId) => {
     try {
-        const peerRoom = rooms.get(socketRoomMap.get(socketId)!);
+        const peerRoom = rooms.get(socketRoomMap.get(socketId));
         const peer = peerRoom?.peers.get(socketId);
-
         const producer = await peer?.transports.senderTransport?.produce({
             kind: data.kind,
             rtpParameters: data.rtpParameters
         });
-
-        if (!producer) throw new Error("Producer creation failed");
-
+        if (!producer)
+            throw new Error("Producer creation failed");
         peer?.producers.set(producer.id, producer);
         peerRoom?.producers.set(producer.id, { producer, ownerPeerId: socketId });
-
         // Notify others
         peerRoom?.peers.forEach((eachPeer, eachPeerId) => {
             if (eachPeerId !== socketId && eachPeer.socket?.readyState === ws.OPEN) {
@@ -357,33 +324,29 @@ const handleProduceTransport = async (data: any, socket: ws.WebSocket, socketId:
                 }));
             }
         });
-
         producer.on('transportclose', () => {
             producer.close();
         });
-
         socket.send(JSON.stringify({ requestId, data: { id: producer.id } }));
-    } catch (error: any) {
+    }
+    catch (error) {
         socket.send(JSON.stringify({ requestId, data: { error: error.message } }));
     }
 };
-
-const handleConsume = async (rtpCapabilities: RtpCapabilities, producerId: string, socketId: string, socket: ws.WebSocket, requestId: string) => {
+const handleConsume = async (rtpCapabilities, producerId, socketId, socket, requestId) => {
     try {
-        const peerRoom = rooms.get(socketRoomMap.get(socketId)!);
+        const peerRoom = rooms.get(socketRoomMap.get(socketId));
         const peer = peerRoom?.peers.get(socketId);
-
-        if (!peer || !peer.transports.receiverTransport) throw new Error("Receiver transport not found");
-        if (!peerRoom?.router.canConsume({ producerId, rtpCapabilities })) throw new Error("Cannot consume");
-
+        if (!peer || !peer.transports.receiverTransport)
+            throw new Error("Receiver transport not found");
+        if (!peerRoom?.router.canConsume({ producerId, rtpCapabilities }))
+            throw new Error("Cannot consume");
         const consumer = await peer.transports.receiverTransport.consume({
             producerId,
             rtpCapabilities,
             paused: true, // Start paused as per Mediasoup guidelines
         });
-
         peer.consumers.set(consumer.id, consumer);
-
         socket.send(JSON.stringify({
             requestId,
             data: {
@@ -393,18 +356,16 @@ const handleConsume = async (rtpCapabilities: RtpCapabilities, producerId: strin
                 rtpParameters: consumer.rtpParameters
             }
         }));
-    } catch (error: any) {
+    }
+    catch (error) {
         socket.send(JSON.stringify({ requestId, error: error.message }));
     }
 };
-
-const handleConsumerResume = async (socket: ws.WebSocket, consumerId: string, socketId: string, requestId: string) => {
-    const peer = rooms.get(socketRoomMap.get(socketId)!)?.peers.get(socketId);
+const handleConsumerResume = async (socket, consumerId, socketId, requestId) => {
+    const peer = rooms.get(socketRoomMap.get(socketId))?.peers.get(socketId);
     const consumer = peer?.consumers.get(consumerId);
-
     if (consumer) {
         await consumer.resume();
-
         // THE FIX: Wait 500ms for the client's WebRTC secure handshake to fully finish, 
         // then explicitly demand a fresh keyframe from the producer.
         if (consumer.kind === 'video') {
@@ -412,25 +373,24 @@ const handleConsumerResume = async (socket: ws.WebSocket, consumerId: string, so
                 try {
                     await consumer.requestKeyFrame();
                     console.log(`Forced keyframe for video consumer ${consumer.id}`);
-                } catch (e) {
+                }
+                catch (e) {
                     console.error("Failed to request keyframe:", e);
                 }
             }, 500);
         }
     }
-
     socket.send(JSON.stringify({ requestId, data: { success: true } }));
 };
-
-const handleProducerToggle = async (DATA: any, socketId: string, socket: ws.WebSocket) => {
-    const peerRoom = rooms.get(socketRoomMap.get(socketId)!);
+const handleProducerToggle = async (DATA, socketId, socket) => {
+    const peerRoom = rooms.get(socketRoomMap.get(socketId));
     const peer = peerRoom?.peers.get(socketId);
     const producer = peer?.producers.get(DATA.data.producerId);
-
     if (producer) {
-        if (DATA.type === "producer-pause") await producer.pause();
-        if (DATA.type === "producer-resume") await producer.resume();
-
+        if (DATA.type === "producer-pause")
+            await producer.pause();
+        if (DATA.type === "producer-resume")
+            await producer.resume();
         // Notify others
         peerRoom?.peers.forEach((eachPeer, eachPeerId) => {
             if (eachPeerId !== socketId && eachPeer.socket?.readyState === ws.OPEN) {
@@ -441,22 +401,20 @@ const handleProducerToggle = async (DATA: any, socketId: string, socket: ws.WebS
             }
         });
     }
-
     socket.send(JSON.stringify({ requestId: DATA.requestId, data: {} }));
 };
-
-const handleAvatarSync = (DATA: any, socketId: string) => {
+const handleAvatarSync = (DATA, socketId) => {
     const roomId = socketRoomMap.get(socketId);
-    if (!roomId) return;
-
+    if (!roomId)
+        return;
     const peerRoom = rooms.get(roomId);
-    if (!peerRoom) return;
-
+    if (!peerRoom)
+        return;
     const { x, y, z, rY } = DATA?.data ?? {};
-
     // Broadcast to all other peers; sender already knows their own position.
     peerRoom.peers.forEach((eachPeer, eachPeerId) => {
-        if (eachPeerId === socketId) return;
+        if (eachPeerId === socketId)
+            return;
         if (eachPeer.socket?.readyState === ws.OPEN) {
             eachPeer.socket.send(JSON.stringify({
                 type: "avatar-state",
@@ -471,48 +429,46 @@ const handleAvatarSync = (DATA: any, socketId: string) => {
         }
     });
 };
-
-const handleProducerClose = async (DATA: any, socketId: string) => {
+const handleProducerClose = async (DATA, socketId) => {
     const roomId = socketRoomMap.get(socketId);
-    if (!roomId) return;
-
+    if (!roomId)
+        return;
     const peerRoom = rooms.get(roomId);
-    if (!peerRoom) return;
-
+    if (!peerRoom)
+        return;
     const producerId = String(DATA?.data?.producerId ?? "");
-    if (!producerId) return;
-
+    if (!producerId)
+        return;
     const producerEntry = peerRoom.producers.get(producerId);
-    if (!producerEntry) return;
-
+    if (!producerEntry)
+        return;
     // Only allow the owner to close their own producer.
     // (If you want admin override, adjust this check.)
-    if (producerEntry.ownerPeerId !== socketId) return;
-
+    if (producerEntry.ownerPeerId !== socketId)
+        return;
     // Close producer first, so mediasoup stops producing.
     try {
         producerEntry.producer.close();
-    } catch {
+    }
+    catch {
         // ignore
     }
-
     peerRoom.producers.delete(producerId);
-
     // Close any consumers tracking this producer across all peers.
     peerRoom.peers.forEach((peer) => {
         peer.consumers.forEach((consumer) => {
             // mediasoup Consumer has producerId property
-            if ((consumer as any).producerId === producerId) {
+            if (consumer.producerId === producerId) {
                 try {
                     consumer.close();
-                } catch {
+                }
+                catch {
                     // ignore
                 }
                 peer.consumers.delete(consumer.id);
             }
         });
     });
-
     // Notify peers so clients unmount frozen/zombie video components.
     peerRoom.peers.forEach((eachPeer, eachPeerId) => {
         if (eachPeer.socket?.readyState === ws.OPEN) {
@@ -523,7 +479,6 @@ const handleProducerClose = async (DATA: any, socketId: string) => {
         }
     });
 };
-
 server.listen(PORT, () => {
     console.log(`Socket Server is listening on port ${PORT}`);
 });

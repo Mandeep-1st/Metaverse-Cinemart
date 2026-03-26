@@ -7,7 +7,10 @@ import { verifyMailer } from "./utils/nodemailer";
 
 const app: Application = express();
 
-app.use(cors({ origin: process.env.SERVER_VAR_CORS_ORIGIN, credentials: true }));
+// If SERVER_VAR_CORS_ORIGIN is missing, reflect the request origin (dev-friendly).
+// This prevents the browser from blocking cross-origin REST calls during local testing.
+const corsOrigin = process.env.SERVER_VAR_CORS_ORIGIN ?? true;
+app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(express.json({ limit: "16kb" }));
 app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(express.static("public"));
