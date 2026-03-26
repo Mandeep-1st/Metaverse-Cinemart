@@ -49,6 +49,12 @@ interface roomMapType {
     producers: Map<string, producerRoomObject>;
 }
 
+interface Position {
+    x: number;
+    z: number;
+    rY: number; //rotation on the y-axis (facing direction)
+}
+
 interface peersMapType {
     socket: ws.WebSocket | null;
     producers: Map<string, Producer>;
@@ -57,6 +63,8 @@ interface peersMapType {
         senderTransport: WebRtcTransport | null;
         receiverTransport: WebRtcTransport | null;
     };
+    position: Position;
+    modelUrl?: string; // We'll store their 3D avatar URL
 }
 
 interface producerRoomObject {
@@ -117,6 +125,9 @@ wss.on('connection', async (socket: ws.WebSocket) => {
                 case "join-room":
                     await handleJoinRoom(DATA, socketId, socket);
                     break;
+                case "player-move":
+                    handlePlayerMove(DATA, socketId);
+                    break;
                 case "getRtpCapabilities":
                     handleGetRtpCapabilities(socketId, socket, DATA.requestId);
                     break;
@@ -153,12 +164,52 @@ wss.on('connection', async (socket: ws.WebSocket) => {
 
 // --- Handlers ---
 
+const handlePlayerMove = (DATA: any, socketId: string) => {
+    const roomId = socketRoomMap.get(socketId);
+    if (!roomId) return;
+
+    const room = rooms.get(roomId);
+    const peer = room?.peers.get(socketId);
+
+    if (!peer) return;
+
+    // 1. Update the server's memory of where this player is
+    peer.position = {
+        x: DATA.data.x,
+        z: DATA.data.z,
+        rY: DATA.data.rY
+    };
+
+    // 2. Broadcast the movement frame to everyone else in the same room
+    room!.peers.forEach((eachPeer, eachPeerId) => {
+        if (eachPeerId !== socketId && eachPeer.socket?.readyState === ws.OPEN) {
+            eachPeer.socket.send(JSON.stringify({
+                type: 'player-moved',
+                data: {
+                    socketId,
+                    position: peer.position
+                }
+            }));
+        }
+    });
+};
+
 const handleDisconnect = (socketId: string) => {
     const peerRoomId = socketRoomMap.get(socketId);
     if (!peerRoomId) return;
 
     const peerRoom = rooms.get(peerRoomId);
     const peer = peerRoom?.peers.get(socketId);
+
+    // Broadcast that player left to despawn avatar
+    peerRoom?.peers.forEach((eachPeer, eachPeerId) => {
+        if (eachPeerId !== socketId && eachPeer.socket?.readyState === ws.OPEN) {
+            eachPeer.socket.send(JSON.stringify({
+                type: "player-left",
+                data: { socketId }
+            }));
+        }
+    });
 
     // Notify others that producer left
     peer?.producers.forEach((eachProducer) => {
@@ -194,6 +245,10 @@ const handleDisconnect = (socketId: string) => {
 const handleJoinRoom = async (DATA: any, socketId: string, socket: ws.WebSocket) => {
     const roomId = DATA.data.roomId;
 
+    // Default spawn point at the center of the room, looking straight ahead
+    const spawnPosition = DATA.data.position || { x: 0, z: 0, rY: 0 };
+    const modelUrl = DATA.data.modelUrl || "";
+
     if (!rooms.has(roomId)) {
         if (!worker) return;
         console.log(`Creating new room: ${roomId}`);
@@ -209,10 +264,50 @@ const handleJoinRoom = async (DATA: any, socketId: string, socket: ws.WebSocket)
         socket: socket,
         producers: new Map(),
         consumers: new Map(),
-        transports: { senderTransport: null, receiverTransport: null }
+        transports: { senderTransport: null, receiverTransport: null },
+        position: spawnPosition, // Save spawn point
+        modelUrl: modelUrl
     });
 
     socketRoomMap.set(socketId, roomId);
+
+    // 1. Notify existing players that a new player spawned
+    room.peers.forEach((eachPeer, eachPeerId) => {
+        if (eachPeerId !== socketId && eachPeer.socket?.readyState === ws.OPEN) {
+            eachPeer.socket.send(JSON.stringify({
+                type: 'player-joined',
+                data: {
+                    socketId,
+                    position: spawnPosition,
+                    modelUrl
+                }
+            }));
+        }
+    });
+
+
+    // 2. Gather existing players' physical state to send to the newcomer
+    const existingPlayers: any[] = [];
+    room.peers.forEach((peer, peerId) => {
+        if (peerId !== socketId) {
+            existingPlayers.push({
+                socketId: peerId,
+                position: peer.position,
+                modelUrl: peer.modelUrl
+            });
+        }
+        if (peer.socket?.readyState === ws.OPEN) {
+            peer.socket.send(JSON.stringify({
+                type: 'player-joined',
+                data: {
+                    socketId,
+                    position: spawnPosition,
+                    modelUrl
+                }
+            }));
+        }
+    }
+    );
 
     // Send back existing producers in the room
     const producersList = Array.from(room.producers.entries()).map(([producerId, producerObj]) => ({
@@ -225,6 +320,7 @@ const handleJoinRoom = async (DATA: any, socketId: string, socket: ws.WebSocket)
         data: {
             message: "Successfully joined room",
             UsersInRoom: room.peers.size,
+            existingPlayers // Send the list of 3D characters already in the room
         },
         requestId: DATA.requestId
     }));

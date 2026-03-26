@@ -1,423 +1,496 @@
-import * as mediasoupClient from "mediasoup-client";
-import { Device } from "mediasoup-client";
-import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useEffect, useState, useRef } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { Environment, Box, PointerLockControls } from "@react-three/drei";
+import * as THREE from "three";
 import { useSocket } from "../context/SocketProvider";
-import {
-  type Transport,
-  type RtpCapabilities,
-  type Producer,
-} from "mediasoup-client/types";
+import TrailerOverlay from "../components/TrailerOverlay";
+import CommentsOverlay from "../components/CommentsOverlay";
+import InfoOverlay from "../components/InfoOverlay";
+import AiOverlay from "../components/AiOverlay";
+import { useMediasoup } from "../hooks/useMediasoup"; // <-- Add this import
 
-interface RemoteMedia {
-  producerId: string;
-  consumerId: string;
-  kind: "video" | "audio";
-  stream: MediaStream;
-  paused?: boolean;
+// --- Types & Zones ---
+interface Position {
+  x: number;
+  z: number;
+  rY: number;
+}
+interface PlayerData {
+  socketId: string;
+  position: Position;
 }
 
-const RemoteVideo = ({ stream }: { stream: MediaStream }) => {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+// Helper to render MediaStreams correctly in React
+const VideoPlayer = ({
+  stream,
+  muted = false,
+  label,
+}: {
+  stream: MediaStream | null;
+  muted?: boolean;
+  label: string;
+}) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
-
-      // Wait a tiny bit for the browser to attach the stream before forcing play
-      setTimeout(() => {
-        videoRef.current
-          ?.play()
-          .catch((e) => console.error("Remote video play error:", e));
-      }, 100);
     }
   }, [stream]);
 
-  // Added 'muted' here. Browsers block video auto-play without it!
-  return (
-    <video
-      ref={videoRef}
-      autoPlay
-      playsInline
-      muted
-      className="h-full w-full object-cover"
-    />
-  );
-};
-
-const RemoteAudio = ({ stream }: { stream: MediaStream }) => {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
-
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.srcObject = stream;
-      audioRef.current.play().catch((e) => {
-        console.error("Audio play error", e);
-        // If the browser blocks autoplay, show the unmute button
-        if (e.name === "NotAllowedError") {
-          setAutoplayBlocked(true);
-        }
-      });
-    }
-  }, [stream]);
+  if (!stream) return null;
 
   return (
-    <>
-      <audio ref={audioRef} autoPlay className="hidden" />
-      {autoplayBlocked && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
-          <button
-            onClick={() => {
-              audioRef.current?.play();
-              setAutoplayBlocked(false);
-            }}
-            className="bg-red-600 hover:bg-red-500 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-2 font-bold animate-pulse"
-          >
-            <span>🔇</span> Click to Allow Audio
-          </button>
-        </div>
-      )}
-    </>
-  );
-};
-
-export const Space = () => {
-  const { roomName } = useParams();
-  const socket = useSocket();
-
-  const [remoteMedia, setRemoteMedia] = useState<RemoteMedia[]>([]);
-  const [status, setStatus] = useState("Initializing...");
-  const [isVideoOn, setIsVideoOn] = useState(false);
-  const [isAudioOn, setIsAudioOn] = useState(false);
-
-  const pendingProducers = useRef<string[]>([]);
-  const deviceRef = useRef<Device | null>(null);
-  const consumerTransportRef = useRef<Transport | null>(null);
-  const producerTransportRef = useRef<Transport | null>(null);
-
-  const localVideoRef = useRef<HTMLVideoElement | null>(null);
-  const localStreamRef = useRef<MediaStream | null>(null);
-  const videoProducerRef = useRef<Producer | null>(null);
-  const audioProducerRef = useRef<Producer | null>(null);
-  const startedRef = useRef<boolean>(false);
-
-  const createDevice = async () => {
-    if (deviceRef.current) return deviceRef.current;
-    try {
-      const rtpCaps =
-        await socket.sendRequest<RtpCapabilities>("getRtpCapabilities");
-      const device = new mediasoupClient.Device();
-      await device.load({ routerRtpCapabilities: rtpCaps });
-      deviceRef.current = device;
-      tryConsumePending();
-      return device;
-    } catch (error) {
-      console.error("Device load failed", error);
-      return null;
-    }
-  };
-
-  const getOrCreateRecvTransport = async () => {
-    if (consumerTransportRef.current) return consumerTransportRef.current;
-    if (!deviceRef.current) return null;
-
-    try {
-      const transportParams: any = await socket.sendRequest(
-        "createWebRtcTransport",
-        { sender: false },
-      );
-      const consumerTransport =
-        deviceRef.current.createRecvTransport(transportParams);
-
-      consumerTransport.on(
-        "connect",
-        async ({ dtlsParameters }, callback, errback) => {
-          try {
-            await socket.sendRequest("transport-recv-connect", {
-              dtlsParameters,
-            });
-            callback();
-          } catch (error: any) {
-            errback(error);
-          }
-        },
-      );
-
-      consumerTransportRef.current = consumerTransport;
-      return consumerTransport;
-    } catch (error) {
-      console.error("Error creating recv transport", error);
-      return null;
-    }
-  };
-
-  const consumeProducer = async (producerId: string) => {
-    if (!deviceRef.current) await createDevice();
-    const transport = await getOrCreateRecvTransport();
-    if (!transport || !deviceRef.current) return;
-
-    try {
-      const data: any = await socket.sendRequest("consume", {
-        rtpCapabilities: deviceRef.current.rtpCapabilities,
-        producerId,
-      });
-
-      const consumer = await transport.consume({
-        id: data.id,
-        producerId: data.producerId,
-        kind: data.kind,
-        rtpParameters: data.rtpParameters,
-      });
-
-      setRemoteMedia((prev) => [
-        ...prev,
-        {
-          producerId,
-          consumerId: consumer.id,
-          kind: consumer.kind as "video" | "audio",
-          stream: new MediaStream([consumer.track]),
-        },
-      ]);
-
-      await socket.sendRequest("consumer-resume", { consumerId: data.id });
-    } catch (error) {
-      console.error("Consumption failed:", error);
-    }
-  };
-
-  const tryConsumePending = async () => {
-    if (!deviceRef.current) return;
-    while (pendingProducers.current.length > 0) {
-      const pId = pendingProducers.current.shift()!;
-      if (!remoteMedia.some((m) => m.producerId === pId)) {
-        await consumeProducer(pId);
-      }
-    }
-  };
-
-  const initializeProducers = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      });
-      localStreamRef.current = stream;
-
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-      }
-
-      if (!producerTransportRef.current && deviceRef.current) {
-        const params: any = await socket.sendRequest("createWebRtcTransport", {
-          sender: true,
-        });
-        const transport = deviceRef.current.createSendTransport(params);
-
-        transport.on(
-          "connect",
-          async ({ dtlsParameters }, callback, errback) => {
-            try {
-              await socket.sendRequest("transport-connect", { dtlsParameters });
-              callback();
-            } catch (err: any) {
-              errback(err);
-            }
-          },
-        );
-
-        transport.on("produce", async (parameters, callback, errback) => {
-          try {
-            const data: any = await socket.sendRequest("transport-produce", {
-              kind: parameters.kind,
-              rtpParameters: parameters.rtpParameters,
-            });
-            callback({ id: data.id });
-          } catch (err: any) {
-            errback(err);
-          }
-        });
-
-        producerTransportRef.current = transport;
-      }
-
-      const videoTrack = stream.getVideoTracks()[0];
-      videoProducerRef.current = await producerTransportRef.current!.produce({
-        track: videoTrack,
-        encodings: [
-          { maxBitrate: 100000 },
-          { maxBitrate: 300000 },
-          { maxBitrate: 900000 },
-        ],
-        codecOptions: { videoGoogleStartBitrate: 1000 },
-      });
-
-      const audioTrack = stream.getAudioTracks()[0];
-      audioProducerRef.current = await producerTransportRef.current!.produce({
-        track: audioTrack,
-      });
-
-      // Start visually "ON"
-      setIsVideoOn(true);
-      setIsAudioOn(true);
-    } catch (error) {
-      console.error("Initialize producers error: ", error);
-    }
-  };
-
-  const toggleVideo = async () => {
-    if (!videoProducerRef.current) {
-      await initializeProducers();
-      return;
-    }
-    if (isVideoOn) {
-      await socket.sendRequest("producer-pause", {
-        producerId: videoProducerRef.current.id,
-      });
-      setIsVideoOn(false);
-    } else {
-      await socket.sendRequest("producer-resume", {
-        producerId: videoProducerRef.current.id,
-      });
-      setIsVideoOn(true);
-    }
-  };
-
-  const toggleAudio = async () => {
-    if (!audioProducerRef.current) {
-      await initializeProducers();
-      return;
-    }
-    if (isAudioOn) {
-      await socket.sendRequest("producer-pause", {
-        producerId: audioProducerRef.current.id,
-      });
-      setIsAudioOn(false);
-    } else {
-      await socket.sendRequest("producer-resume", {
-        producerId: audioProducerRef.current.id,
-      });
-      setIsAudioOn(true);
-    }
-  };
-
-  useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
-
-    socket.onExistingProducers((producers) => {
-      producers.forEach((p: any) =>
-        pendingProducers.current.push(p.producerId),
-      );
-      tryConsumePending();
-    });
-
-    socket.onNewProducerArrives((p) => {
-      pendingProducers.current.push(p.producerId);
-      tryConsumePending();
-    });
-
-    socket.onProducerClosed((data) => {
-      setRemoteMedia((prev) =>
-        prev.filter((m) => m.producerId !== data.producerId),
-      );
-    });
-
-    socket.onProducerPaused((data) => {
-      setRemoteMedia((prev) =>
-        prev.map((m) =>
-          m.producerId === data.producerId ? { ...m, paused: true } : m,
-        ),
-      );
-    });
-
-    socket.onProducerResumed((data) => {
-      setRemoteMedia((prev) =>
-        prev.map((m) =>
-          m.producerId === data.producerId ? { ...m, paused: false } : m,
-        ),
-      );
-    });
-
-    const init = async () => {
-      await socket.sendRequest("join-room", { roomId: roomName });
-      await createDevice();
-      setStatus(`Connected to Room: ${roomName}`);
-    };
-    init();
-  }, [roomName]);
-
-  return (
-    <div className="min-h-screen bg-neutral-900 text-white p-6">
-      <div className="text-center mb-6">
-        <h1 className="text-2xl font-bold">Metaverse Cinemart</h1>
-        <p className="text-green-400 font-mono text-sm">{status}</p>
-      </div>
-
-      <div className="flex flex-col lg:flex-row gap-6 h-[80vh]">
-        {/* Local Feed */}
-        <div className="w-full lg:w-1/3 flex flex-col gap-4">
-          <div className="bg-neutral-800 rounded-xl overflow-hidden shadow-lg relative aspect-video">
-            <video
-              ref={localVideoRef}
-              muted
-              autoPlay
-              playsInline
-              className={`w-full h-full object-cover ${!isVideoOn && "hidden"}`}
-            />
-            {!isVideoOn && (
-              <div className="absolute inset-0 flex items-center justify-center bg-neutral-800">
-                <span className="text-4xl">📸</span>
-              </div>
-            )}
-            <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-4">
-              <button
-                onClick={toggleVideo}
-                className={`p-3 rounded-full ${isVideoOn ? "bg-neutral-700/80 hover:bg-neutral-600" : "bg-red-500 hover:bg-red-600"}`}
-              >
-                {isVideoOn ? "📹 On" : "📹 Off"}
-              </button>
-              <button
-                onClick={toggleAudio}
-                className={`p-3 rounded-full ${isAudioOn ? "bg-neutral-700/80 hover:bg-neutral-600" : "bg-red-500 hover:bg-red-600"}`}
-              >
-                {isAudioOn ? "🎤 On" : "🎤 Off"}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Remote Feeds */}
-        <div className="w-full lg:w-2/3 bg-neutral-800 rounded-xl p-4 overflow-y-auto">
-          <h2 className="text-lg font-semibold mb-4 border-b border-neutral-700 pb-2">
-            Friends in Room
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {remoteMedia
-              .filter((m) => m.kind === "video")
-              .map((m) => (
-                <div
-                  key={m.consumerId}
-                  className="bg-black rounded-lg overflow-hidden aspect-video relative border border-neutral-700"
-                >
-                  {!m.paused ? (
-                    <RemoteVideo stream={m.stream} />
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center bg-neutral-900">
-                      <span>Camera Paused</span>
-                    </div>
-                  )}
-                </div>
-              ))}
-            {/* Hidden Audio Elements */}
-            {remoteMedia
-              .filter((m) => m.kind === "audio")
-              .map((m) => (
-                <RemoteAudio key={m.consumerId} stream={m.stream} />
-              ))}
-          </div>
-        </div>
+    <div className="relative w-48 h-32 bg-zinc-900 rounded-xl overflow-hidden border-2 border-zinc-800 shadow-xl">
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted={muted}
+        className="w-full h-full object-cover"
+      />
+      <div className="absolute bottom-2 left-2 bg-black/60 px-2 py-1 rounded text-xs text-white font-bold backdrop-blur-sm">
+        {label}
       </div>
     </div>
   );
 };
+
+const ZONES = {
+  tv: { x: 0, z: -12, radius: 4, key: "KeyT", prompt: "Press 'T' for Trailer" },
+  comments: {
+    x: -12,
+    z: 0,
+    radius: 4,
+    key: "KeyC",
+    prompt: "Press 'C' for Comments",
+  },
+  info: { x: 12, z: 0, radius: 4, key: "KeyI", prompt: "Press 'I' for Info" },
+  ai: {
+    x: 0,
+    z: 12,
+    radius: 4,
+    key: "KeyA",
+    prompt: "Press 'A' to chat with AI",
+  },
+};
+
+// --- 1. The FPS Player Controller ---
+const FPSController = ({
+  socket,
+  setInteractionPrompt,
+  setActiveOverlay,
+  activeOverlay,
+}: {
+  socket: any;
+  setInteractionPrompt: (prompt: string | null) => void;
+  setActiveOverlay: (overlay: string | null) => void;
+  activeOverlay: string | null;
+}) => {
+  const keys = useRef<{ [key: string]: boolean }>({});
+  const currentPromptRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Do not record keys if a menu is open (like when typing in the AI chat)
+      if (activeOverlay) return;
+      keys.current[e.code] = true;
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      keys.current[e.code] = false;
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [activeOverlay]);
+
+  useFrame((state) => {
+    // If a menu is open, freeze movement
+    if (activeOverlay) return;
+
+    const speed = 0.12;
+    const bounds = 12.5;
+    let moved = false;
+
+    // --- FPS Relative Movement Math ---
+    // Calculate forward/backward and left/right based on CAMERA direction
+    let fwd = 0;
+    let right = 0;
+    if (keys.current["KeyW"] || keys.current["ArrowUp"]) fwd += 1;
+    if (keys.current["KeyS"] || keys.current["ArrowDown"]) fwd -= 1;
+    if (keys.current["KeyA"] || keys.current["ArrowLeft"]) right -= 1;
+    if (keys.current["KeyD"] || keys.current["ArrowRight"]) right += 1;
+
+    if (fwd !== 0 || right !== 0) {
+      // Normalize vector so diagonal movement isn't twice as fast
+      const direction = new THREE.Vector3(right, 0, -fwd)
+        .normalize()
+        .multiplyScalar(speed);
+
+      // Translate relative to where the camera is currently looking
+      state.camera.translateX(direction.x);
+      state.camera.translateZ(direction.z);
+      moved = true;
+    }
+
+    // Lock Y-axis (Eye Level) and enforce invisible walls
+    state.camera.position.y = 2;
+    state.camera.position.x = Math.max(
+      -bounds,
+      Math.min(bounds, state.camera.position.x),
+    );
+    state.camera.position.z = Math.max(
+      -bounds,
+      Math.min(bounds, state.camera.position.z),
+    );
+
+    if (moved && socket?.readyState === WebSocket.OPEN) {
+      socket.send(
+        JSON.stringify({
+          type: "player-move",
+          // Send our rotation so other players see which way our head is turned
+          data: {
+            x: state.camera.position.x,
+            z: state.camera.position.z,
+            rY: state.camera.rotation.y,
+          },
+        }),
+      );
+    }
+
+    // --- Dynamic Prompts ---
+    const px = state.camera.position.x;
+    const pz = state.camera.position.z;
+    let activePrompt: string | null = null;
+
+    if (Math.hypot(px - ZONES.tv.x, pz - ZONES.tv.z) < ZONES.tv.radius)
+      activePrompt = ZONES.tv.prompt;
+    else if (
+      Math.hypot(px - ZONES.comments.x, pz - ZONES.comments.z) <
+      ZONES.comments.radius
+    )
+      activePrompt = ZONES.comments.prompt;
+    else if (
+      Math.hypot(px - ZONES.info.x, pz - ZONES.info.z) < ZONES.info.radius
+    )
+      activePrompt = ZONES.info.prompt;
+    else if (Math.hypot(px - ZONES.ai.x, pz - ZONES.ai.z) < ZONES.ai.radius)
+      activePrompt = ZONES.ai.prompt;
+
+    if (activePrompt !== currentPromptRef.current) {
+      currentPromptRef.current = activePrompt;
+      setInteractionPrompt(activePrompt);
+    }
+
+    // --- Trigger Interactions ---
+    if (keys.current[ZONES.tv.key] && activePrompt === ZONES.tv.prompt)
+      triggerMenu("tv");
+    if (
+      keys.current[ZONES.comments.key] &&
+      activePrompt === ZONES.comments.prompt
+    )
+      triggerMenu("comments");
+    if (keys.current[ZONES.info.key] && activePrompt === ZONES.info.prompt)
+      triggerMenu("info");
+    if (keys.current[ZONES.ai.key] && activePrompt === ZONES.ai.prompt)
+      triggerMenu("ai");
+  });
+
+  const triggerMenu = (menu: string) => {
+    setActiveOverlay(menu);
+    keys.current = {}; // Clear keys
+    document.exitPointerLock(); // FREE THE MOUSE SO THEY CAN CLICK THE UI
+  };
+
+  return (
+    <>
+      {/* PointerLock automatically captures the mouse when you click the canvas */}
+      {/* We unmount it when a menu opens so the mouse is freed */}
+      {!activeOverlay && <PointerLockControls />}
+    </>
+  );
+};
+
+// --- 2. The Guest Player Component (Now rotates to look at things!) ---
+const GuestPlayer = ({ position }: { position: Position }) => {
+  const meshRef = useRef<THREE.Mesh>(null);
+  useFrame(() => {
+    if (!meshRef.current) return;
+    meshRef.current.position.lerp(
+      new THREE.Vector3(position.x, 1, position.z),
+      0.2,
+    );
+
+    // Smoothly rotate their avatar to match where they are looking
+    const targetRotation = new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(0, position.rY, 0),
+    );
+    meshRef.current.quaternion.slerp(targetRotation, 0.2);
+  });
+  return (
+    <Box ref={meshRef} position={[position.x, 1, position.z]} args={[1, 2, 1]}>
+      <meshStandardMaterial color="#ef4444" />
+      {/* Add a little "visor" so we know which way they are facing */}
+      <Box position={[0, 0.5, -0.6]} args={[0.8, 0.4, 0.2]}>
+        <meshStandardMaterial color="black" />
+      </Box>
+    </Box>
+  );
+};
+
+// --- 3. The Main Room Component ---
+export default function Space() {
+  const { socket, isConnected } = useSocket();
+  const [guests, setGuests] = useState<Map<string, PlayerData>>(new Map());
+  const hasJoined = useRef(false);
+
+  // NEW: Destructure stopWebcam
+  const { startWebcam, stopWebcam, localStream, remoteStreams, initWebRTC } =
+    useMediasoup(socket, isConnected);
+
+  useEffect(() => {
+    if (
+      isConnected &&
+      socket &&
+      socket.readyState === WebSocket.OPEN &&
+      !hasJoined.current
+    ) {
+      hasJoined.current = true;
+      socket.send(
+        JSON.stringify({
+          type: "join-room",
+          data: {
+            roomId: "lobby-1",
+            position: { x: 0, z: 8, rY: 0 },
+            modelUrl: "",
+          },
+          requestId: crypto.randomUUID(),
+        }),
+      );
+
+      // We still want to initialize the receiving pipeline so we can see others
+      // EVEN if we haven't turned our own camera on yet!
+      initWebRTC();
+    }
+  }, [isConnected, socket]);
+
+  const [interactionPrompt, setInteractionPrompt] = useState<string | null>(
+    null,
+  );
+  const [activeOverlay, setActiveOverlay] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (
+      isConnected &&
+      socket &&
+      socket.readyState === WebSocket.OPEN &&
+      !hasJoined.current
+    ) {
+      hasJoined.current = true;
+      socket.send(
+        JSON.stringify({
+          type: "join-room",
+          data: {
+            roomId: "lobby-1",
+            position: { x: 0, z: 8, rY: 0 },
+            modelUrl: "",
+          },
+          requestId: crypto.randomUUID(),
+        }),
+      );
+    }
+  }, [isConnected, socket]);
+
+  useEffect(() => {
+    if (!isConnected || socket?.readyState !== WebSocket.OPEN) {
+      hasJoined.current = false;
+    }
+  }, [isConnected, socket]);
+
+  useEffect(() => {
+    if (!socket) return;
+    const handleMessage = (event: MessageEvent) => {
+      const { type, data } = JSON.parse(event.data);
+      if (type === "room-join-request") {
+        const newGuests = new Map(guests);
+        data.existingPlayers.forEach((p: PlayerData) =>
+          newGuests.set(p.socketId, p),
+        );
+        setGuests(newGuests);
+      } else if (type === "player-joined")
+        setGuests((prev) => new Map(prev).set(data.socketId, data));
+      else if (type === "player-moved") {
+        setGuests((prev) => {
+          const updated = new Map(prev);
+          const guest = updated.get(data.socketId);
+          if (guest) {
+            guest.position = data.position;
+            updated.set(data.socketId, guest);
+          }
+          return updated;
+        });
+      } else if (type === "player-left") {
+        setGuests((prev) => {
+          const updated = new Map(prev);
+          updated.delete(data.socketId);
+          return updated;
+        });
+      }
+    };
+    socket.addEventListener("message", handleMessage);
+    return () => socket.removeEventListener("message", handleMessage);
+  }, [socket, guests]);
+
+  return (
+    <div className="w-full h-screen bg-black relative">
+      <div className="absolute top-4 left-4 z-10 text-white font-mono bg-black/50 p-4 rounded pointer-events-none">
+        <h1 className="text-xl font-bold">Metaverse Room</h1>
+        <p className="text-blue-400">
+          Click screen to look around (ESC to release)
+        </p>
+        <p>Use W, A, S, D to move</p>
+        <p>Players in room: {guests.size + 1}</p>
+        {/* THE TOGGLE CONTROLS */}
+        {!localStream ? (
+          <button
+            onClick={startWebcam}
+            className="mt-4 pointer-events-auto bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-sans font-bold shadow-lg transition-colors"
+          >
+            Start Watch Party (Camera)
+          </button>
+        ) : (
+          <button
+            onClick={stopWebcam}
+            className="mt-4 pointer-events-auto bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg font-sans font-bold shadow-lg transition-colors flex items-center gap-2"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+            Stop Camera & Mic
+          </button>
+        )}
+      </div>
+
+      {/* NEW: The Video Bar (Top Center) */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex gap-4 p-2 bg-black/40 backdrop-blur-md rounded-2xl">
+        {localStream && (
+          <VideoPlayer stream={localStream} muted={true} label="You" />
+        )}
+
+        {Array.from(remoteStreams.entries()).map((entry) => {
+          const [producerId, stream]: any = entry;
+          return (
+            <VideoPlayer key={producerId} stream={stream} label={`Guest`} />
+          );
+        })}
+      </div>
+
+      {interactionPrompt && !activeOverlay && (
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 pointer-events-none animate-bounce">
+          <div className="bg-white text-black px-6 py-3 rounded-full font-bold shadow-[0_0_20px_rgba(255,255,255,0.5)]">
+            {interactionPrompt}
+          </div>
+        </div>
+      )}
+
+      {/* OVERLAYS */}
+      {activeOverlay === "tv" && (
+        <TrailerOverlay
+          onClose={() => setActiveOverlay(null)}
+          movieId="157336"
+        />
+      )}
+      {activeOverlay === "comments" && (
+        <CommentsOverlay
+          onClose={() => setActiveOverlay(null)}
+          movieId="157336"
+        />
+      )}
+      {activeOverlay === "info" && (
+        <InfoOverlay onClose={() => setActiveOverlay(null)} movieId="157336" />
+      )}
+      {activeOverlay === "ai" && (
+        <AiOverlay onClose={() => setActiveOverlay(null)} movieId="157336" />
+      )}
+
+      <Canvas shadows>
+        <ambientLight intensity={0.5} />
+        <directionalLight position={[10, 20, 10]} castShadow intensity={1} />
+        <Environment preset="city" />
+
+        <mesh
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0, 0, 0]}
+          receiveShadow
+        >
+          <planeGeometry args={[26, 26]} />
+          <meshStandardMaterial color="#111" />
+        </mesh>
+
+        <Box position={[0, 4.5, -12.5]} args={[16, 9, 1]} castShadow>
+          <meshStandardMaterial
+            color="black"
+            emissive="#1d4ed8"
+            emissiveIntensity={0.2}
+          />
+        </Box>
+
+        <group position={[-12, 0, 0]}>
+          <mesh position={[2, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[3, 32]} />
+            <meshStandardMaterial color="#3b82f6" transparent opacity={0.2} />
+          </mesh>
+          <Box position={[0, 1, 0]} args={[2, 2, 6]} castShadow>
+            <meshStandardMaterial color="#333" />
+          </Box>
+        </group>
+
+        <group position={[12, 0, 0]}>
+          <mesh position={[-2, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[3, 32]} />
+            <meshStandardMaterial color="#10b981" transparent opacity={0.2} />
+          </mesh>
+          <Box position={[0, 2, 0]} args={[2, 4, 8]} castShadow>
+            <meshStandardMaterial color="#333" />
+          </Box>
+        </group>
+
+        <group position={[0, 0, 12]}>
+          <mesh position={[0, 0.01, -2]} rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[3, 32]} />
+            <meshStandardMaterial color="#8b5cf6" transparent opacity={0.2} />
+          </mesh>
+          <Box position={[0, 1.5, 0]} args={[6, 3, 2]} castShadow>
+            <meshStandardMaterial color="#333" />
+          </Box>
+        </group>
+
+        {/* The New FPS Controller takes over the camera */}
+        <FPSController
+          socket={socket}
+          setInteractionPrompt={setInteractionPrompt}
+          setActiveOverlay={setActiveOverlay}
+          activeOverlay={activeOverlay}
+        />
+
+        {/* Guests now have a little black "Visor" so you can see where they are looking! */}
+        {Array.from(guests.values()).map((guest) => (
+          <GuestPlayer key={guest.socketId} position={guest.position} />
+        ))}
+      </Canvas>
+    </div>
+  );
+}

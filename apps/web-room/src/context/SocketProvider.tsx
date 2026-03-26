@@ -3,38 +3,66 @@ import React, {
   useContext,
   useEffect,
   useState,
-  type ReactNode,
+  useRef,
 } from "react";
-import socketService from "../services/SocketService";
 
-type SocketServiceType = typeof socketService;
-const SocketContext = createContext<SocketServiceType>(socketService);
+interface SocketContextType {
+  socket: WebSocket | null;
+  isConnected: boolean;
+}
 
-export const SocketProvider: React.FC<{ children: ReactNode }> = ({
-  children,
-}) => {
-  const [isReady, setIsReady] = useState(false);
+const SocketContext = createContext<SocketContextType>({
+  socket: null,
+  isConnected: false,
+});
+
+export const useSocket = () => useContext(SocketContext);
+
+export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
+  const [socket, setSocket] = useState<WebSocket | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  // Keep a ref to prevent unnecessary re-renders during rapid game loops
+  const socketRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    // Connect using Vite Environment Variable
-    const wsUrl = import.meta.env.VITE_WS_URL || "ws://localhost:8000";
-    socketService.connect(wsUrl);
-    setIsReady(true);
+    const WEBSOCKET_URL =
+      import.meta.env.VITE_WEBSOCKET_URL || "ws://localhost:8000";
+    let ws: WebSocket;
+
+    // THE FIX: Add a small delay to prevent Strict Mode from spamming connections
+    const connectTimeout = setTimeout(() => {
+      ws = new WebSocket(WEBSOCKET_URL);
+
+      ws.onopen = () => {
+        console.log("✅ Connected to Metaverse Game Server");
+        setIsConnected(true);
+      };
+
+      ws.onclose = () => {
+        console.log("❌ Disconnected from Server");
+        setIsConnected(false);
+      };
+
+      ws.onerror = (error) => {
+        console.error("WebSocket Error:", error);
+      };
+
+      socketRef.current = ws;
+      setSocket(ws);
+    }, 100); // 100ms delay
+
+    return () => {
+      clearTimeout(connectTimeout); // Cancel connection if unmounted instantly
+      if (ws) {
+        ws.close();
+      }
+      setIsConnected(false);
+    };
   }, []);
 
-  if (!isReady) {
-    return (
-      <div className="flex h-screen items-center justify-center text-white bg-black">
-        <h1>Connecting to signaling server...</h1>
-      </div>
-    );
-  }
-
   return (
-    <SocketContext.Provider value={socketService}>
+    <SocketContext.Provider value={{ socket, isConnected }}>
       {children}
     </SocketContext.Provider>
   );
 };
-
-export const useSocket = (): SocketServiceType => useContext(SocketContext);
