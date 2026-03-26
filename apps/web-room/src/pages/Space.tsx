@@ -3,6 +3,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { PointerLockControls } from "@react-three/drei";
+import { TheatreRoom } from "../components/TheatreRoom";
+import { BigTV, ChairsAndPeople, Cupboards, AIDoor } from "../components/TheatreProps";
 import { SocketProvider, useSocket } from "../context/SocketProvider";
 import { apiGet } from "../utils/apiClient";
 import type {
@@ -763,6 +765,7 @@ function WorldFPS({
   playerRef,
   nearZoneRef,
   onNearZoneChange,
+  videoUrl,
 }: {
   movementEnabled: boolean;
   overlayOpen: boolean;
@@ -772,6 +775,7 @@ function WorldFPS({
   playerRef: React.MutableRefObject<{ x: number; y: number; z: number; yaw: number }>;
   nearZoneRef: React.MutableRefObject<ZoneId | null>;
   onNearZoneChange: (zone: ZoneId | null) => void;
+  videoUrl?: string;
 }) {
   const controlsRef = useRef<any>(null);
   const keysRef = useRef({ w: false, a: false, s: false, d: false });
@@ -933,44 +937,24 @@ function WorldFPS({
     playerRef.current = { x: nextX, y: PLAYER_Y, z: nextZ, yaw: obj.rotation.y };
   });
 
-  const zoneMarkers = useMemo(
-    () => [
-      { id: "north" as const, pos: [0, 0.9, -12] as const, label: "TV (T)" },
-      { id: "west" as const, pos: [-12, 0.9, 0] as const, label: "Comments (C)" },
-      { id: "east" as const, pos: [12, 0.9, 0] as const, label: "Info (I)" },
-      { id: "south" as const, pos: [0, 0.9, 12] as const, label: "CineBot (A)" },
-    ],
-    [],
-  );
-
   return (
     <>
       <PointerLockControls ref={controlsRef} />
 
-      {/* Floor */}
-      <mesh rotation-x={-Math.PI / 2} position={[0, 0, 0]}>
-        <planeGeometry args={[26, 26, 26, 26]} />
-        <meshStandardMaterial color={"#0b1020"} wireframe />
-      </mesh>
+      {/* The Enclosed Theatre Environment */}
+      <TheatreRoom />
 
-      {/* Lighting */}
-      <ambientLight intensity={0.7} />
-      <directionalLight position={[4, 8, 4]} intensity={0.9} />
+      {/* Lighting for Theatre Atmosphere */}
+      <ambientLight intensity={2.0} />
+      <hemisphereLight color="#ffffff" groundColor="#404040" intensity={1.5} />
+      <pointLight position={[0, 10, 0]} intensity={4.0} color="#ffffff" castShadow distance={60} decay={2} />
+      <directionalLight position={[4, 8, 4]} intensity={1.5} castShadow />
 
-      {/* Zone markers – no floating HTML labels; proximity toast handles the hint */}
-      {zoneMarkers.map((z) => {
-        const isActive = nearZone === z.id;
-        return (
-          <mesh key={z.id} position={z.pos as any}>
-            <boxGeometry args={[2, 1.2, 2]} />
-            <meshStandardMaterial
-              color={isActive ? "#ff4a4a" : "#22304f"}
-              emissive={isActive ? "#ff4a4a" : "#000000"}
-              emissiveIntensity={isActive ? 0.6 : 0}
-            />
-          </mesh>
-        );
-      })}
+      {/* Interactive Zone Props */}
+      <BigTV position={[0, 0.9, -12]} isActive={nearZone === "north"} videoUrl={videoUrl} />
+      <ChairsAndPeople position={[-12, 0.9, 0]} rotation={[0, Math.PI / 2, 0]} isActive={nearZone === "west"} />
+      <Cupboards position={[12, 0.9, 0]} rotation={[0, -Math.PI / 2, 0]} isActive={nearZone === "east"} />
+      <AIDoor position={[0, 0.9, 12]} rotation={[0, Math.PI, 0]} isActive={nearZone === "south"} />
     </>
   );
 }
@@ -1128,7 +1112,7 @@ function EnterOverlay({
 /** Bottom-centre toast that shows a key hint when near a zone. */
 function ProximityToast({ nearZone }: { nearZone: ZoneId | null }) {
   const hints: Record<ZoneId, string> = {
-    north: 'Press T to play trailer',
+    north: 'Trailer is playing on the Big TV!',
     west:  'Press C for comments',
     east:  'Press I for movie info',
     south: 'Press A for CineBot AI',
@@ -1166,6 +1150,9 @@ export const Space = () => {
     const v = searchParams.get("roomId");
     return v ? String(v) : null;
   }, [searchParams]);
+
+  const { movie } = useMovieDetails(movieId);
+  const videoUrl = movie?.video?.url ? toYouTubeEmbed(movie.video.url) : undefined;
 
   const mode: Mode = useMemo(() => {
     if (roomId && movieId) return "watchparty";
@@ -1225,6 +1212,7 @@ export const Space = () => {
         playerRef={playerRef}
         nearZoneRef={nearZoneRef}
         onNearZoneChange={setNearZone}
+        videoUrl={videoUrl}
       />
 
       {/* Guests (multiplayer only) */}
@@ -1270,9 +1258,6 @@ export const Space = () => {
       <EnterOverlay controlsApiRef={controlsApiRef} />
       <ProximityToast nearZone={nearZone} />
 
-      {movieId && activeOverlay === "trailer" && (
-        <TrailerOverlay movieId={movieId} onClose={onCloseOverlay} />
-      )}
       {movieId && activeOverlay === "info" && (
         <MovieInfoOverlay movieId={movieId} onClose={onCloseOverlay} />
       )}
