@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 interface SocketRequest {
     requestId: string;
     type: string;
@@ -26,6 +27,10 @@ class SocketService {
     private producerClosedHelper: ((data: any) => void)[] = [];
     private producerPausedHelper: ((data: any) => void)[] = [];
     private producerResumedHelper: ((data: any) => void)[] = [];
+    private avatarStateHelper: ((data: any) => void)[] = [];
+    private peerLeftHelper: ((data: any) => void)[] = [];
+    private trailerStateHelper: ((data: any) => void)[] = [];
+    private lastTrailerState: any | null = null;
 
     public connect(url: string): void {
         if (this.socket) return;
@@ -45,7 +50,14 @@ class SocketService {
                     this.pendingRequests.delete(msg.requestId);
                 } else {
                     // Push Notifications
-                    if (msg.type === "existing-producers") {
+                    if (msg.type === "trailer-state") {
+                        this.lastTrailerState = msg.data ?? null;
+                        this.trailerStateHelper.forEach(cb => cb(msg.data));
+                    } else if (msg.type === "existing-producers") {
+                        if ((msg as any).trailerState) {
+                            this.lastTrailerState = (msg as any).trailerState ?? null;
+                            this.trailerStateHelper.forEach(cb => cb((msg as any).trailerState));
+                        }
                         this.existingProducersHelper.forEach(cb => cb(msg.data));
                     } else if (msg.type === "new-producer") {
                         this.newProducerArrivesHelper.forEach(cb => cb(msg.data));
@@ -55,6 +67,10 @@ class SocketService {
                         this.producerPausedHelper.forEach(cb => cb(msg.data));
                     } else if (msg.type === "producer-resumed") {
                         this.producerResumedHelper.forEach(cb => cb(msg.data));
+                    } else if (msg.type === "avatar-state" || msg.type === "avatar-sync") {
+                        this.avatarStateHelper.forEach(cb => cb(msg.data));
+                    } else if (msg.type === "peer-left") {
+                        this.peerLeftHelper.forEach(cb => cb(msg.data));
                     }
                 }
             } catch (err) {
@@ -66,6 +82,21 @@ class SocketService {
             console.log("WebSocket Disconnected");
             this.socket = null;
         };
+    }
+
+    public getReadyState(): number | null {
+        return this.socket?.readyState ?? null;
+    }
+
+    public disconnect(): void {
+        if (this.socket) {
+            try {
+                this.socket.close();
+            } catch {
+                // Ignore
+            }
+        }
+        this.socket = null;
     }
 
     // Subscriptions
@@ -88,6 +119,30 @@ class SocketService {
     public onProducerResumed(cb: (data: any) => void) {
         this.producerResumedHelper.push(cb);
         return () => this.producerResumedHelper = this.producerResumedHelper.filter(fn => fn !== cb);
+    }
+
+    public onAvatarState(cb: (data: any) => void) {
+        this.avatarStateHelper.push(cb);
+        return () => {
+            this.avatarStateHelper = this.avatarStateHelper.filter((fn) => fn !== cb);
+        };
+    }
+
+    public onPeerLeft(cb: (data: any) => void) {
+        this.peerLeftHelper.push(cb);
+        return () => {
+            this.peerLeftHelper = this.peerLeftHelper.filter((fn) => fn !== cb);
+        };
+    }
+
+    public onTrailerState(cb: (data: any) => void) {
+        this.trailerStateHelper.push(cb);
+        if (this.lastTrailerState) {
+            window.setTimeout(() => cb(this.lastTrailerState), 0);
+        }
+        return () => {
+            this.trailerStateHelper = this.trailerStateHelper.filter((fn) => fn !== cb);
+        };
     }
 
     public sendRequest<T>(type: string, data: any = {}): Promise<T> {
@@ -126,6 +181,13 @@ class SocketService {
                 reject(new Error("Socket is closed."));
             }
         });
+    }
+
+    // Fire-and-forget signaling (no requestId). Used for presence/avatar sync.
+    public emit(type: string, data: any = {}): void {
+        if (!this.socket) return;
+        if (this.socket.readyState !== WebSocket.OPEN) return; // CRITICAL: only send when OPEN
+        this.socket.send(JSON.stringify({ type, data }));
     }
 }
 

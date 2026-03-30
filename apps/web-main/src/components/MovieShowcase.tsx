@@ -1,14 +1,59 @@
 import React from "react";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 
+const webRoomUrl =
+  import.meta.env.VITE_WEB_ROOM_URL || "http://localhost:5173";
+
 const movies = [
-  { id: 1, title: "Interstellar", image: "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?q=80&w=500&auto=format&fit=crop", rating: "9.2", year: "2014", genre: "Sci-Fi", desc: "A team of explorers travel through a wormhole in space in an attempt to ensure humanity's survival." },
-  { id: 2, title: "Inception", image: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?q=80&w=500&auto=format&fit=crop", rating: "8.8", year: "2010", genre: "Action", desc: "A thief who steals corporate secrets through the use of dream-sharing technology." },
-  { id: 3, title: "The Dark Knight", image: "https://images.unsplash.com/photo-1478720568477-152d9b164e26?q=80&w=500&auto=format&fit=crop", rating: "9.0", year: "2008", genre: "Drama", desc: "When the Joker wreaks havoc and chaos on the people of Gotham." },
-  { id: 4, title: "The Martian", image: "https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?q=80&w=500&auto=format&fit=crop", rating: "8.0", year: "2015", genre: "Adventure", desc: "An astronaut becomes stranded on Mars after his team assume him dead." },
+  {
+    id: 157336,
+    title: "Interstellar",
+    image:
+      "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?q=80&w=500&auto=format&fit=crop",
+    rating: "9.2",
+    year: "2014",
+    genre: "Sci-Fi",
+    desc: "A team of explorers travel through a wormhole in space in an attempt to ensure humanity's survival.",
+  },
+  {
+    id: 27205,
+    title: "Inception",
+    image:
+      "https://images.unsplash.com/photo-1536440136628-849c177e76a1?q=80&w=500&auto=format&fit=crop",
+    rating: "8.8",
+    year: "2010",
+    genre: "Action",
+    desc: "A thief who steals corporate secrets through the use of dream-sharing technology.",
+  },
+  {
+    id: 155,
+    title: "The Dark Knight",
+    image:
+      "https://images.unsplash.com/photo-1478720568477-152d9b164e26?q=80&w=500&auto=format&fit=crop",
+    rating: "9.0",
+    year: "2008",
+    genre: "Drama",
+    desc: "When the Joker wreaks havoc and chaos on the people of Gotham.",
+  },
+  {
+    id: 36557,
+    title: "The Martian",
+    image:
+      "https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?q=80&w=500&auto=format&fit=crop",
+    rating: "8.0",
+    year: "2015",
+    genre: "Adventure",
+    desc: "An astronaut becomes stranded on Mars after his team assume him dead.",
+  },
 ];
 
-const MovieCard = ({ movie, index }: { movie: any; index: number }) => {
+const MovieCard = ({
+  movie,
+  index,
+}: {
+  movie: { id: number; title: string; image: string; rating: string; year: string; genre: string; desc: string };
+  index: number;
+}) => {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const mouseXSpring = useSpring(x);
@@ -31,6 +76,10 @@ const MovieCard = ({ movie, index }: { movie: any; index: number }) => {
       transition={{ duration: 0.8, delay: index * 0.1 }}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => { x.set(0); y.set(0); }}
+      onClick={() => {
+        // Phase 1 requirement: redirect to `web-room` and pass `movieId` via URL.
+        window.location.assign(`${webRoomUrl}/?movieId=${movie.id}`);
+      }}
       style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
       className="group relative h-[400px] sm:h-[450px] w-full cursor-pointer perspective-1000"
     >

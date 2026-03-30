@@ -16,20 +16,20 @@ import { verifyJwt } from "../middlewares/auth.middleware";
 const router: Router = Router();
 
 router.get("/search", searchMovie)
-router.get("/recommendations", verifyJwt, getRecommendedMovies)
-router.get("/:tmdbId", verifyJwt, getMovieDetails)
+router.get("/recommendations", getRecommendedMovies)
+router.get("/:tmdbId", getMovieDetails)
 
 // Admin Routes
-router.post("/seed", verifyJwt, seedInDatabase)
+router.post("/seed", seedInDatabase)
 
 // User Preference Routes
-router.post("/preference/init", verifyJwt, initUserPreference) // Smart Init
-router.get("/preference", verifyJwt, getUserPreference)
+router.post("/preference/init", initUserPreference) // Smart Init
+router.get("/preference", getUserPreference)
 
 // Smart Preference Interaction Routes
-router.post("/whenclicked", verifyJwt, handleWhenClicked)
-router.post("/whensearch", verifyJwt, handleWhenSearch)
-router.post("/whencomment", verifyJwt, handleWhenComment)
-router.post("/whenroom", verifyJwt, handleWhenRoom)
+router.post("/whenclicked", handleWhenClicked)
+router.post("/whensearch", handleWhenSearch)
+router.post("/whencomment", handleWhenComment)
+router.post("/whenroom", handleWhenRoom)
 
 export { router as movieRouter }

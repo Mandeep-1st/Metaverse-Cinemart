@@ -1,7 +1,7 @@
 import 'dotenv/config'
 import '@repo/db'
 import { connectDB } from '@repo/db'
-const PORT = process.env.SERVER_VAR_PORT || 8001
+const PORT =  8001
 import { app } from './app'
 
 const dbUrl = process.env.SERVER_VAR_DATABASE_URL;

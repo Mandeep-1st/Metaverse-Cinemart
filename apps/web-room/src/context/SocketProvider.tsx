@@ -1,26 +1,55 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, {
   createContext,
   useContext,
   useEffect,
   useState,
   type ReactNode,
+  useRef,
 } from "react";
 import socketService from "../services/SocketService";
 
 type SocketServiceType = typeof socketService;
 const SocketContext = createContext<SocketServiceType>(socketService);
 
-export const SocketProvider: React.FC<{ children: ReactNode }> = ({
-  children,
-}) => {
+export const SocketProvider: React.FC<{
+  children: ReactNode;
+  enabled?: boolean;
+}> = ({ children, enabled = true }) => {
   const [isReady, setIsReady] = useState(false);
+  const connectTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
-    // Connect using Vite Environment Variable
+    if (!enabled) {
+      socketService.disconnect();
+      // Avoid sync setState within effect (React lint rule).
+      window.setTimeout(() => setIsReady(false), 0);
+      return;
+    }
+
+    // CRITICAL: React 18 StrictMode can mount/unmount twice in dev.
+    // Debounce the actual connect call and clear it on cleanup to prevent ghost duplicates.
     const wsUrl = import.meta.env.VITE_WS_URL || "ws://localhost:8000";
-    socketService.connect(wsUrl);
-    setIsReady(true);
-  }, []);
+    const readyState = socketService.getReadyState();
+    if (readyState !== null) {
+      window.setTimeout(() => setIsReady(true), 0);
+      return;
+    }
+
+    window.setTimeout(() => setIsReady(false), 0);
+    connectTimeoutRef.current = window.setTimeout(() => {
+      socketService.connect(wsUrl);
+      setIsReady(true);
+    }, 250);
+
+    return () => {
+      if (connectTimeoutRef.current) {
+        window.clearTimeout(connectTimeoutRef.current);
+        connectTimeoutRef.current = null;
+      }
+      // Do NOT disconnect on cleanup; StrictMode will remount immediately and we don't want reconnect churn.
+    };
+  }, [enabled]);
 
   if (!isReady) {
     return (
