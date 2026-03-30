@@ -1,7 +1,15 @@
 import { useCallback, useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { User, Mail, Lock, ChevronRight, ScanFace, Eye, EyeOff } from "lucide-react";
+import {
+  User,
+  Mail,
+  Lock,
+  ChevronRight,
+  ScanFace,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import GoogleSignInButton from "../components/auth/GoogleSignInButton";
 import { useAuth } from "../context/AuthContext";
 import { apiPost } from "../utils/apiClient";
@@ -100,7 +108,9 @@ export default function SignupPage() {
       });
       completeLogin(response);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "OTP verification failed.");
+      setStatus(
+        error instanceof Error ? error.message : "OTP verification failed.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -134,7 +144,9 @@ export default function SignupPage() {
       });
       completeLogin(response);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Google signup failed.");
+      setStatus(
+        error instanceof Error ? error.message : "Google signup failed.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -189,7 +201,9 @@ export default function SignupPage() {
               className="text-primary font-black uppercase text-[9px] sm:text-[11px] tracking-wider flex items-center gap-3"
             >
               <div className="h-[2px] w-4 sm:w-6 bg-primary shadow-xs" />
-              {step === "signup" ? "Security Protocol" : "Verification Protocol"}
+              {step === "signup"
+                ? "Security Protocol"
+                : "Verification Protocol"}
             </motion.span>
 
             <h2 className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black text-foreground tracking-tighter uppercase leading-[0.9] italic">
@@ -206,7 +220,10 @@ export default function SignupPage() {
           </div>
 
           {step === "signup" ? (
-            <form className="flex flex-col gap-4 sm:gap-6" onSubmit={handleSignup}>
+            <form
+              className="flex flex-col gap-4 sm:gap-6"
+              onSubmit={handleSignup}
+            >
               <div className="relative group">
                 <User className="absolute left-4 sm:left-7 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors w-4 h-4 sm:w-5 sm:h-5" />
                 <input
@@ -282,9 +299,13 @@ export default function SignupPage() {
               </motion.button>
             </form>
           ) : (
-            <form className="flex flex-col gap-4 sm:gap-6" onSubmit={handleVerify}>
+            <form
+              className="flex flex-col gap-4 sm:gap-6"
+              onSubmit={handleVerify}
+            >
               <div className="rounded-2xl border border-primary/20 bg-primary/5 px-5 py-4 text-sm text-muted-foreground">
-                We sent an OTP to your email. Verify the code to continue to character selection.
+                We sent an OTP to your email. Verify the code to continue to
+                character selection.
               </div>
               <div className="relative group">
                 <Lock className="absolute left-4 sm:left-7 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors w-4 h-4 sm:w-5 sm:h-5" />

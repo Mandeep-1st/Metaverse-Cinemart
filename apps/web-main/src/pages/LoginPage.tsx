@@ -1,7 +1,15 @@
 import { useCallback, useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Lock, Mail, ChevronRight, ScanFace, Database, Eye, EyeOff } from "lucide-react";
+import {
+  Lock,
+  Mail,
+  ChevronRight,
+  ScanFace,
+  Database,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import GoogleSignInButton from "../components/auth/GoogleSignInButton";
 import { useAuth } from "../context/AuthContext";
 import { apiPost } from "../utils/apiClient";
@@ -77,7 +85,9 @@ export default function LoginPage() {
       });
       completeLogin(response);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Google login failed.");
+      setStatus(
+        error instanceof Error ? error.message : "Google login failed.",
+      );
     } finally {
       setSubmitting(false);
     }

@@ -116,6 +116,7 @@ type ViewerUser = {
   username: string;
   email: string;
   avatar?: string;
+<<<<<<< HEAD
   profilePhoto?: string;
 };
 
@@ -127,6 +128,8 @@ type MovieComment = {
   profilePhoto?: string;
   text: string;
   createdAt: string;
+};
+=======
 };
 
 type RoomCreationPayload = {
@@ -150,8 +153,38 @@ type SearchMovieResult = {
   };
 };
 
+const GRID_HALF = 13; // floor roughly spans -13..13
+const PLAYER_Y = 1.6;
+const ZONE_DISTANCE = 4.5;
+const DEFAULT_WEB_MAIN_URL = "http://localhost:5173";
+>>>>>>> abc829b (Connecting the workflow)
+
+type RoomCreationPayload = {
+  room: {
+    roomId: string;
+    movieTmdbId: number;
+    aiMode: boolean;
+  };
+  shareLink: string;
+};
+
+type SearchMovieResult = {
+  tmdb_id: number;
+  title: string;
+  overview?: string;
+  images?: {
+    poster?: string | null;
+  };
+  metrics?: {
+    vote_average?: number;
+  };
+};
+
+<<<<<<< HEAD
 const DEFAULT_WEB_MAIN_URL = "http://localhost:5173";
 
+=======
+>>>>>>> abc829b (Connecting the workflow)
 function toYouTubeEmbed(urlOrKey: string) {
   if (urlOrKey.startsWith("http")) {
     const u = new URL(urlOrKey);
@@ -617,27 +650,39 @@ function TrailerModal({
           textTransform: "uppercase",
         }}
       >
+<<<<<<< HEAD
         Sync Time {localTime.toFixed(1)}s{" "}
         {watchparty ? "- Watch Party Sync" : "- Solo"}
+=======
+        Sync Time {localTime.toFixed(1)}s {watchparty ? "- Watch Party Sync" : "- Solo"}
+>>>>>>> abc829b (Connecting the workflow)
       </div>
     </div>
   );
 }
 
 function SyncedTrailerModal({
+<<<<<<< HEAD
   movieTitle,
   videos,
   selectedVideoKey,
   onSelectVideo,
+=======
+  videoUrl,
+>>>>>>> abc829b (Connecting the workflow)
   onClose,
   playing,
   syncedTime,
   watchparty,
 }: {
+<<<<<<< HEAD
   movieTitle?: string;
   videos: MovieVideo[];
   selectedVideoKey: string | null;
   onSelectVideo: (key: string) => void;
+=======
+  videoUrl: string;
+>>>>>>> abc829b (Connecting the workflow)
   onClose: () => void;
   playing: boolean;
   syncedTime: number;
@@ -646,6 +691,7 @@ function SyncedTrailerModal({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [localPlaying, setLocalPlaying] = useState(playing);
   const [localTime, setLocalTime] = useState(syncedTime);
+<<<<<<< HEAD
   const selectedVideo = useMemo(
     () => videos.find((video) => video.key === selectedVideoKey) || null,
     [selectedVideoKey, videos],
@@ -664,6 +710,18 @@ function SyncedTrailerModal({
   useEffect(() => {
     if (!videoUrl || !canRemoteControl) return;
 
+=======
+
+  useEffect(() => {
+    setLocalPlaying(playing);
+  }, [playing]);
+
+  useEffect(() => {
+    setLocalTime(syncedTime);
+  }, [syncedTime]);
+
+  useEffect(() => {
+>>>>>>> abc829b (Connecting the workflow)
     const cw = iframeRef.current?.contentWindow;
     if (!cw) return;
 
@@ -684,17 +742,28 @@ function SyncedTrailerModal({
       }),
       "*",
     );
+<<<<<<< HEAD
   }, [canRemoteControl, playing, syncedTime, videoUrl]);
 
   useEffect(() => {
     if (!localPlaying || !selectedVideo) return;
+=======
+  }, [playing, syncedTime]);
+
+  useEffect(() => {
+    if (!localPlaying) return;
+>>>>>>> abc829b (Connecting the workflow)
 
     const interval = window.setInterval(() => {
       setLocalTime((previous) => previous + 0.5);
     }, 500);
 
     return () => window.clearInterval(interval);
+<<<<<<< HEAD
   }, [localPlaying, selectedVideo]);
+=======
+  }, [localPlaying]);
+>>>>>>> abc829b (Connecting the workflow)
 
   const emitSyncUpdate = (nextState: { isPlaying: boolean; time: number }) => {
     if (!watchparty) return;
@@ -707,8 +776,11 @@ function SyncedTrailerModal({
   };
 
   const togglePause = () => {
+<<<<<<< HEAD
     if (!canRemoteControl) return;
 
+=======
+>>>>>>> abc829b (Connecting the workflow)
     const cw = iframeRef.current?.contentWindow;
     if (!cw) return;
 
@@ -730,8 +802,11 @@ function SyncedTrailerModal({
   };
 
   const rewindTenSeconds = () => {
+<<<<<<< HEAD
     if (!canRemoteControl) return;
 
+=======
+>>>>>>> abc829b (Connecting the workflow)
     const cw = iframeRef.current?.contentWindow;
     if (!cw) return;
 
@@ -752,6 +827,7 @@ function SyncedTrailerModal({
   };
 
   return (
+<<<<<<< HEAD
     <div className="absolute inset-0 z-[300] bg-black/95">
       <div className="mx-auto flex h-full w-full max-w-[1920px] flex-col gap-4 px-4 py-4 lg:px-6">
         <div className="flex flex-col gap-4 rounded-[28px] border border-white/10 bg-black/45 px-5 py-4 backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between">
@@ -908,6 +984,120 @@ function SyncedTrailerModal({
           </div>
         </div>
       </div>
+=======
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 300,
+        background: "rgba(0,0,0,0.95)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "16px",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          width: "min(98vw, 1920px)",
+        }}
+      >
+        <span
+          style={{
+            color: "#fff",
+            fontSize: "11px",
+            fontWeight: 700,
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            opacity: 0.6,
+          }}
+        >
+          Now Playing - Trailer
+        </span>
+
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button
+            onClick={rewindTenSeconds}
+            style={{
+              background: "rgba(255,255,255,0.12)",
+              border: "1px solid rgba(255,255,255,0.25)",
+              color: "#fff",
+              borderRadius: "999px",
+              padding: "6px 20px",
+              fontSize: "12px",
+              cursor: "pointer",
+              letterSpacing: "0.1em",
+            }}
+          >
+            -10s
+          </button>
+          <button
+            onClick={togglePause}
+            style={{
+              background: "rgba(255,255,255,0.12)",
+              border: "1px solid rgba(255,255,255,0.25)",
+              color: "#fff",
+              borderRadius: "999px",
+              padding: "6px 20px",
+              fontSize: "12px",
+              cursor: "pointer",
+              letterSpacing: "0.1em",
+              minWidth: "90px",
+            }}
+          >
+            {localPlaying ? "Pause" : "Play"}
+          </button>
+          <button
+            onClick={onClose}
+            style={{
+              background: "rgba(255,255,255,0.1)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              color: "#fff",
+              borderRadius: "999px",
+              padding: "6px 20px",
+              fontSize: "12px",
+              cursor: "pointer",
+              letterSpacing: "0.1em",
+            }}
+          >
+            ESC - Close
+          </button>
+        </div>
+      </div>
+
+      <iframe
+        ref={iframeRef}
+        title="Trailer"
+        width="1200px"
+        height="600px"
+        src={`${videoUrl}?autoplay=1&controls=1&enablejsapi=1`}
+        allow="autoplay; encrypted-media; fullscreen"
+        allowFullScreen
+        style={{
+          border: "none",
+          borderRadius: "8px",
+          display: "block",
+          boxShadow: "0 0 80px rgba(60,60,255,0.3)",
+        }}
+      />
+
+      <div
+        style={{
+          color: "#fff",
+          opacity: 0.7,
+          fontSize: "12px",
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+        }}
+      >
+        Sync Time {localTime.toFixed(1)}s{" "}
+        {watchparty ? "- Watch Party Sync" : "- Solo"}
+      </div>
+>>>>>>> abc829b (Connecting the workflow)
     </div>
   );
 }
@@ -972,8 +1162,13 @@ function ContextualCommentsOverlay({ onClose }: { onClose: () => void }) {
   return (
     <OverlayShell title="Comments / Chairs" onClose={onClose}>
       <div className="text-muted-foreground leading-relaxed">
+<<<<<<< HEAD
         Live chat is available inside shared watch party rooms. Create or join a
         synced room to comment with the rest of the audience.
+=======
+        Live chat is available inside shared watch party rooms. Create or join
+        a synced room to comment with the rest of the audience.
+>>>>>>> abc829b (Connecting the workflow)
       </div>
     </OverlayShell>
   );
@@ -982,6 +1177,342 @@ function ContextualCommentsOverlay({ onClose }: { onClose: () => void }) {
 function RoomCommentsOverlay({
   onClose,
   currentUser,
+<<<<<<< HEAD
+=======
+}: {
+  onClose: () => void;
+  currentUser: ViewerUser | null;
+}) {
+  const socket = useSocket();
+  const [messages, setMessages] = useState<any[]>([]);
+  const [input, setInput] = useState("");
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const unsubscribeBootstrap = socket.onRoomBootstrap((data) => {
+      setMessages(data?.chatMessages ?? []);
+    });
+    const unsubscribeMessage = socket.onChatMessage((message) => {
+      setMessages((previous) => [...previous, message]);
+    });
+    const unsubscribeLike = socket.onChatMessageLiked((payload) => {
+      setMessages((previous) =>
+        previous.map((message) =>
+          message.id === payload.messageId
+            ? { ...message, likes: payload.likes }
+            : message,
+        ),
+      );
+    });
+
+    return () => {
+      unsubscribeBootstrap();
+      unsubscribeMessage();
+      unsubscribeLike();
+    };
+  }, [socket]);
+
+  return (
+    <OverlayShell title="Comments / Chairs" onClose={onClose}>
+      <div className="grid gap-4">
+        <div className="max-h-[50vh] overflow-y-auto pr-2 grid gap-3">
+          {messages.map((message) => (
+            <div
+              key={message.id}
+              className="rounded-3xl border border-border/20 bg-card/30 p-4"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="font-black text-foreground">
+                  {message.senderName}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {new Date(message.createdAt).toLocaleTimeString()}
+                </div>
+              </div>
+              <div className="mt-3 text-muted-foreground leading-relaxed">
+                {message.text}
+              </div>
+              <button
+                onClick={() =>
+                  socket.emit("chat-like", {
+                    messageId: message.id,
+                    senderId: currentUser?._id ?? "guest",
+                  })
+                }
+                className="mt-4 text-sm text-primary"
+              >
+                Like {message.likes || 0}
+              </button>
+            </div>
+          ))}
+
+          {messages.length === 0 && (
+            <div className="rounded-3xl border border-dashed border-border/30 p-6 text-sm text-muted-foreground">
+              No messages yet. Break the silence with the first comment.
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-3">
+          <input
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            placeholder="Send a room message"
+            className="flex-1 rounded-full border border-border/20 bg-card/20 px-4 py-3 outline-none"
+          />
+          <button
+            onClick={() => {
+              if (!input.trim()) return;
+              socket.emit("chat-send", {
+                text: input.trim(),
+                senderId: currentUser?._id ?? "guest",
+                senderName:
+                  currentUser?.fullName || currentUser?.username || "Guest",
+              });
+              setInput("");
+            }}
+            className="rounded-full bg-primary px-5 py-3 text-[10px] font-black uppercase tracking-[0.3em] text-primary-foreground"
+          >
+            Send
+          </button>
+        </div>
+      </div>
+    </OverlayShell>
+  );
+}
+
+function RoomAIChatOverlay({
+  onClose,
+  mode,
+  movieId,
+}: {
+  onClose: () => void;
+  mode: Mode;
+  movieId: number | null;
+}) {
+  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<
+    Array<{ role: "user" | "ai"; content: string }>
+  >([
+    {
+      role: "ai",
+      content:
+        mode === "watchparty"
+          ? "Ask me what this room should watch next, or ask about the current movie."
+          : "Ask me about the movie, the cast, or what to watch next.",
+    },
+  ]);
+  const [status, setStatus] = useState("");
+
+  const sendMessage = async () => {
+    if (!input.trim()) return;
+
+    const nextInput = input.trim();
+    setMessages((previous) => [
+      ...previous,
+      {
+        role: "user",
+        content: nextInput,
+      },
+    ]);
+    setInput("");
+    setStatus("Thinking...");
+
+    try {
+      const response = movieId
+        ? await apiPost<ApiResponse<{ role?: string; content?: string }>>(
+            "/ai/context-chat",
+            {
+              movieId,
+              question: nextInput,
+            },
+          )
+        : await apiPost<ApiResponse<{ role?: string; content?: string }>>(
+            "/ai/chat",
+            {
+              message: nextInput,
+            },
+          );
+
+      setMessages((previous) => [
+        ...previous,
+        {
+          role: "ai",
+          content:
+            response.data.content ||
+            response.message ||
+            "The AI room did not return a response.",
+        },
+      ]);
+      setStatus("");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "AI request failed.");
+    }
+  };
+
+  return (
+    <OverlayShell title="CineBot AI Desk" onClose={onClose}>
+      <div className="grid gap-4">
+        <div className="max-h-[50vh] overflow-y-auto pr-2 grid gap-3">
+          {messages.map((message, index) => (
+            <div
+              key={`${message.role}-${index}`}
+              className={`rounded-3xl border p-4 ${
+                message.role === "ai"
+                  ? "border-primary/20 bg-primary/5"
+                  : "border-border/20 bg-card/20"
+              }`}
+            >
+              <div className="text-[10px] font-black uppercase tracking-[0.35em] text-primary">
+                {message.role === "ai" ? "CineBot" : "You"}
+              </div>
+              <div className="mt-3 text-sm text-muted-foreground leading-relaxed">
+                {message.content}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex gap-3">
+          <input
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            placeholder="Ask about the movie or request a suggestion"
+            className="flex-1 rounded-full border border-border/20 bg-card/20 px-4 py-3 outline-none"
+          />
+          <button
+            onClick={sendMessage}
+            className="rounded-full bg-primary px-5 py-3 text-[10px] font-black uppercase tracking-[0.3em] text-primary-foreground"
+          >
+            Ask
+          </button>
+        </div>
+
+        {status && <div className="text-sm text-muted-foreground">{status}</div>}
+      </div>
+    </OverlayShell>
+  );
+}
+
+function VoteDock({
+  roomId,
+  movieId,
+  visible,
+}: {
+  roomId: string;
+  movieId: number | null;
+  visible: boolean;
+}) {
+  const socket = useSocket();
+  const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [votes, setVotes] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadRecommendations = async () => {
+      try {
+        const response = await apiGet<ApiResponse<any[]>>(
+          `/rooms/${roomId}/recommendations`,
+        );
+        setRecommendations(response.data);
+      } catch {
+        if (!movieId) return;
+        try {
+          const fallback = await apiGet<ApiResponse<any[]>>(
+            `/movies/${movieId}/related`,
+          );
+          setRecommendations(fallback.data);
+        } catch {
+          setRecommendations([]);
+        }
+      }
+    };
+
+    loadRecommendations();
+  }, [movieId, roomId]);
+
+  useEffect(() => {
+    const unsubscribeBootstrap = socket.onRoomBootstrap((data) => {
+      setVotes(data?.voteState ?? []);
+    });
+    const unsubscribeVotes = socket.onVoteState((data) => {
+      setVotes(data ?? []);
+    });
+
+    return () => {
+      unsubscribeBootstrap();
+      unsubscribeVotes();
+    };
+  }, [socket]);
+
+  if (!visible) return null;
+
+  const winningVote = votes[0];
+
+  return (
+    <div className="absolute bottom-6 right-6 z-[245] pointer-events-auto group">
+      <div className="w-[340px] rounded-[var(--radius)] border border-border/20 bg-background/80 p-4 backdrop-blur-2xl opacity-55 transition-opacity duration-300 group-hover:opacity-100">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-primary text-[10px] font-black uppercase tracking-[0.35em]">
+              Vote Shelf
+            </div>
+            <div className="mt-2 text-sm text-muted-foreground">
+              Hover to vote on the next shared recommendation.
+            </div>
+          </div>
+          {winningVote && (
+            <div className="rounded-full border border-primary/20 px-3 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-primary">
+              Leading {winningVote.count}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 grid gap-3">
+          {recommendations.slice(0, 3).map((recommendation) => {
+            const voteCount =
+              votes.find(
+                (vote) =>
+                  vote.optionId === String(recommendation.tmdb_id),
+              )?.count || 0;
+
+            return (
+              <div
+                key={recommendation.tmdb_id}
+                className="rounded-2xl border border-border/20 bg-card/20 p-3"
+              >
+                <div className="font-black text-sm text-foreground">
+                  {recommendation.title}
+                </div>
+                <div className="mt-2 text-xs text-muted-foreground line-clamp-2">
+                  {recommendation.overview}
+                </div>
+                <button
+                  onClick={() =>
+                    socket.emit("vote-submit", {
+                      optionId: String(recommendation.tmdb_id),
+                      label: recommendation.title,
+                    })
+                  }
+                  className="mt-3 rounded-full bg-primary px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-primary-foreground"
+                >
+                  Vote {voteCount > 0 ? `(${voteCount})` : ""}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GuestBox({
+  x,
+  y,
+  z,
+  yaw,
+>>>>>>> abc829b (Connecting the workflow)
 }: {
   onClose: () => void;
   currentUser: ViewerUser | null;
@@ -2797,6 +3328,7 @@ function PersistentCreateRoomOverlay({
     setCreating(true);
     setErrorText(null);
     try {
+<<<<<<< HEAD
       const response = await apiPost<ApiResponse<RoomCreationPayload>>(
         "/rooms",
         {
@@ -2810,6 +3342,18 @@ function PersistentCreateRoomOverlay({
           allowVoting: true,
         },
       );
+=======
+      const response = await apiPost<ApiResponse<RoomCreationPayload>>("/rooms", {
+        movieId: selectedMovie.tmdb_id,
+        label: roomLabel.trim() || `${selectedMovie.title} Watch Party`,
+        aiMode,
+        visibility,
+        maxParticipants,
+        allowChat: true,
+        allowVoice: true,
+        allowVoting: true,
+      });
+>>>>>>> abc829b (Connecting the workflow)
 
       setCreatedRoom(response.data);
     } catch (error) {
@@ -2821,7 +3365,12 @@ function PersistentCreateRoomOverlay({
     }
   }, [aiMode, maxParticipants, roomLabel, selectedMovie, visibility]);
 
+<<<<<<< HEAD
   const webMainUrl = import.meta.env.VITE_WEB_MAIN_URL || DEFAULT_WEB_MAIN_URL;
+=======
+  const webMainUrl =
+    import.meta.env.VITE_WEB_MAIN_URL || DEFAULT_WEB_MAIN_URL;
+>>>>>>> abc829b (Connecting the workflow)
 
   return (
     <div className="absolute inset-0 z-[210] flex items-center justify-center bg-black/70 p-6">
@@ -2926,12 +3475,18 @@ function PersistentCreateRoomOverlay({
                 {selectedMovie ? (
                   <div className="mt-5 space-y-4">
                     <div>
+<<<<<<< HEAD
                       <div className="font-black text-lg">
                         {selectedMovie.title}
                       </div>
                       <div className="mt-1 text-sm text-muted-foreground">
                         TMDB score{" "}
                         {selectedMovie.metrics?.vote_average ?? "N/A"}
+=======
+                      <div className="font-black text-lg">{selectedMovie.title}</div>
+                      <div className="mt-1 text-sm text-muted-foreground">
+                        TMDB score {selectedMovie.metrics?.vote_average ?? "N/A"}
+>>>>>>> abc829b (Connecting the workflow)
                       </div>
                     </div>
                     <input
@@ -2943,9 +3498,13 @@ function PersistentCreateRoomOverlay({
                     <select
                       value={visibility}
                       onChange={(event) =>
+<<<<<<< HEAD
                         setVisibility(
                           event.target.value as "private" | "public",
                         )
+=======
+                        setVisibility(event.target.value as "private" | "public")
+>>>>>>> abc829b (Connecting the workflow)
                       }
                       className="w-full rounded-xl border border-border/20 bg-background/30 px-4 py-3 outline-none"
                     >
@@ -3001,9 +3560,13 @@ function PersistentCreateRoomOverlay({
             </div>
             <div className="mt-6 flex flex-wrap gap-3">
               <button
+<<<<<<< HEAD
                 onClick={() =>
                   navigator.clipboard.writeText(createdRoom.shareLink)
                 }
+=======
+                onClick={() => navigator.clipboard.writeText(createdRoom.shareLink)}
+>>>>>>> abc829b (Connecting the workflow)
                 className="rounded-full border border-border/20 px-5 py-3 text-[10px] font-black uppercase tracking-[0.3em]"
               >
                 Copy Link
@@ -3049,11 +3612,19 @@ function GuidedEnterOverlay({
         opacity: locked ? 0 : 1,
         transition: "opacity 0.3s ease",
       }}
+<<<<<<< HEAD
       className="absolute top-4 left-1/2 -translate-x-1/2 z-[250] flex items-center gap-2 px-5 py-2.5 rounded-full bg-amber-600/40 border border-amber-400/30 backdrop-blur-sm shadow-lg cursor-pointer select-none"
       onClick={() => !locked && controlsApiRef.current?.lock?.()}
     >
       <span className="text-amber-50 text-sm font-bold tracking-wide">
         🖱 Click to walk — WASD to move
+=======
+      className="absolute top-4 left-1/2 -translate-x-1/2 z-[250] flex items-center gap-2 px-5 py-2.5 rounded-full bg-red-600/90 border border-red-400/60 backdrop-blur-sm shadow-lg cursor-pointer select-none"
+      onClick={() => !locked && controlsApiRef.current?.lock?.()}
+    >
+      <span className="text-white text-sm font-bold tracking-wide">
+        Click to walk - WASD to move
+>>>>>>> abc829b (Connecting the workflow)
       </span>
     </div>
   );
@@ -3091,6 +3662,7 @@ function EnterOverlay({
 
 const legacySpaceComponents = [
   TrailerModal,
+<<<<<<< HEAD
   MovieInfoOverlay,
   CommentsOverlay,
   ContextualCommentsOverlay,
@@ -3098,6 +3670,9 @@ const legacySpaceComponents = [
   RoomAIChatOverlay,
   VoteDock,
   WorldFPS,
+=======
+  CommentsOverlay,
+>>>>>>> abc829b (Connecting the workflow)
   CreateRoomOverlay,
   EnterOverlay,
 ];
@@ -3211,6 +3786,7 @@ export const Space = () => {
   const overlayOpen = Boolean(activeOverlay);
 
   useEffect(() => {
+<<<<<<< HEAD
     const storedAvatar = window.localStorage.getItem("metaverse-room-avatar");
     if (storedAvatar) {
       setCachedAvatarId(storedAvatar);
@@ -3227,15 +3803,23 @@ export const Space = () => {
           setCachedAvatarId(response.data.user.avatar);
         }
       })
+=======
+    apiGet<ApiResponse<{ user: ViewerUser }>>("/users/me")
+      .then((response) => setViewer(response.data.user))
+>>>>>>> abc829b (Connecting the workflow)
       .catch(() => setViewer(null));
   }, []);
 
   useEffect(() => {
+<<<<<<< HEAD
     if (
       !aiRoomMode ||
       mode !== "watchparty" ||
       initializedAiOverlayRef.current
     ) {
+=======
+    if (!aiRoomMode || mode !== "watchparty" || initializedAiOverlayRef.current) {
+>>>>>>> abc829b (Connecting the workflow)
       return;
     }
 
@@ -3343,6 +3927,7 @@ export const Space = () => {
             onSyncTrailer={handleSyncTrailer}
             onSyncModal={handleSyncModal}
           />
+<<<<<<< HEAD
           <RoomChatDrawer
             visible={activeOverlay === null}
             currentUser={viewer}
@@ -3355,6 +3940,18 @@ export const Space = () => {
           videos={availableVideos}
           selectedVideoKey={selectedVideoKey}
           onSelectVideo={setSelectedVideoKey}
+=======
+          <VoteDock
+            roomId={roomId}
+            movieId={movieId}
+            visible={activeOverlay === null}
+          />
+        </>
+      )}
+      {activeOverlay === "trailer" && videoUrl && (
+        <SyncedTrailerModal
+          videoUrl={videoUrl}
+>>>>>>> abc829b (Connecting the workflow)
           onClose={onCloseOverlay}
           playing={trailerPlaying}
           syncedTime={trailerTime}
@@ -3367,6 +3964,7 @@ export const Space = () => {
       {movieId && activeOverlay === "info" && (
         <RichMovieInfoOverlay movieId={movieId} onClose={onCloseOverlay} />
       )}
+<<<<<<< HEAD
       {movieId && activeOverlay === "comments" && (
         <PersistentMovieCommentsOverlay
           movieId={movieId}
@@ -3379,6 +3977,21 @@ export const Space = () => {
           movieId={movieId}
           movieTitle={movie?.title}
           currentUser={viewer}
+=======
+      {activeOverlay === "comments" && mode === "watchparty" && (
+        <RoomCommentsOverlay
+          onClose={onCloseOverlay}
+          currentUser={viewer}
+        />
+      )}
+      {activeOverlay === "comments" && mode !== "watchparty" && (
+        <ContextualCommentsOverlay onClose={onCloseOverlay} />
+      )}
+      {activeOverlay === "ai" && (
+        <RoomAIChatOverlay
+          mode={mode}
+          movieId={movieId}
+>>>>>>> abc829b (Connecting the workflow)
           onClose={onCloseOverlay}
         />
       )}

@@ -6,11 +6,9 @@ import { ApiError } from "../utils/apiError";
 import { ApiResponse } from "../utils/apiResponse";
 import { asyncHandler } from "../utils/asyncHandler";
 
-const DEFAULT_WEB_ROOM_URL = "https://metaverse-cinemart-web-room.vercel.app";
-
 const buildShareLink = (roomId: string, movieId: number, aiMode: boolean) => {
     const baseUrl =
-        process.env.SERVER_VAR_WEB_ROOM_URL || DEFAULT_WEB_ROOM_URL;
+        process.env.SERVER_VAR_WEB_ROOM_URL || "";
     const searchParams = new URLSearchParams({
         roomId,
         movieId: String(movieId),

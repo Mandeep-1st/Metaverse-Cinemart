@@ -10,7 +10,10 @@ import HomePage from "./pages/HomePage";
 import SignupPage from "./pages/SignupPage";
 import LoginPage from "./pages/LoginPage";
 import MovieInfo from "./pages/MovieInfo";
+<<<<<<< HEAD
 import AiPage from "./pages/AiPage";
+=======
+>>>>>>> abc829b (Connecting the workflow)
 import AvatarSelection from "./pages/AvatarSelection";
 import RoomsPage from "./pages/RoomsPage";
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -93,7 +96,10 @@ export default function App() {
           <Route element={<ProtectedRoutes />}>
             <Route path="/home" element={<HomePage />} />
             <Route path="/movies/:movieId" element={<MovieInfo />} />
+<<<<<<< HEAD
             <Route path="/movies/:movieId/ai" element={<AiPage />} />
+=======
+>>>>>>> abc829b (Connecting the workflow)
             <Route path="/rooms" element={<RoomsPage />} />
           </Route>
 

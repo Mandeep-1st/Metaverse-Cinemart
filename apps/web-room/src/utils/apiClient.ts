@@ -1,8 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
-// const DEFAULT_HTTP_SERVER_URL = "http://localhost:3002";
-
 const httpServerUrl =
   import.meta.env.VITE_HTTP_SERVER_URL;
 
