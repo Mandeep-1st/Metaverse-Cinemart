@@ -29,6 +29,8 @@ class SocketService {
     private producerResumedHelper: ((data: any) => void)[] = [];
     private avatarStateHelper: ((data: any) => void)[] = [];
     private peerLeftHelper: ((data: any) => void)[] = [];
+    private trailerStateHelper: ((data: any) => void)[] = [];
+    private lastTrailerState: any | null = null;
 
     public connect(url: string): void {
         if (this.socket) return;
@@ -48,7 +50,14 @@ class SocketService {
                     this.pendingRequests.delete(msg.requestId);
                 } else {
                     // Push Notifications
-                    if (msg.type === "existing-producers") {
+                    if (msg.type === "trailer-state") {
+                        this.lastTrailerState = msg.data ?? null;
+                        this.trailerStateHelper.forEach(cb => cb(msg.data));
+                    } else if (msg.type === "existing-producers") {
+                        if ((msg as any).trailerState) {
+                            this.lastTrailerState = (msg as any).trailerState ?? null;
+                            this.trailerStateHelper.forEach(cb => cb((msg as any).trailerState));
+                        }
                         this.existingProducersHelper.forEach(cb => cb(msg.data));
                     } else if (msg.type === "new-producer") {
                         this.newProducerArrivesHelper.forEach(cb => cb(msg.data));
@@ -123,6 +132,16 @@ class SocketService {
         this.peerLeftHelper.push(cb);
         return () => {
             this.peerLeftHelper = this.peerLeftHelper.filter((fn) => fn !== cb);
+        };
+    }
+
+    public onTrailerState(cb: (data: any) => void) {
+        this.trailerStateHelper.push(cb);
+        if (this.lastTrailerState) {
+            window.setTimeout(() => cb(this.lastTrailerState), 0);
+        }
+        return () => {
+            this.trailerStateHelper = this.trailerStateHelper.filter((fn) => fn !== cb);
         };
     }
 

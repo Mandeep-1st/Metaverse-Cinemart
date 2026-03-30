@@ -47,6 +47,8 @@ interface roomMapType {
     router: Router;
     peers: Map<string, peersMapType>;
     producers: Map<string, producerRoomObject>;
+    trailerState: { isPlaying: boolean; time: number; updatedAt: number; modalOpen: boolean }; // ← add modalOpen
+
 }
 
 interface peersMapType {
@@ -148,6 +150,9 @@ wss.on('connection', async (socket: ws.WebSocket) => {
                 case "producer-close":
                     await handleProducerClose(DATA, socketId);
                     break;
+                case "trailer-update":
+                    handleTrailerUpdate(DATA, socketId);
+                    break;
                 default:
                     console.warn(`Unknown message type: ${DATA.type}`);
             }
@@ -216,7 +221,8 @@ const handleJoinRoom = async (DATA: any, socketId: string, socket: ws.WebSocket)
         rooms.set(roomId, {
             router: await worker.createRouter({ mediaCodecs }),
             peers: new Map(),
-            producers: new Map()
+            producers: new Map(),
+            trailerState: { isPlaying: true, time: 0, updatedAt: Date.now(), modalOpen: false } // ← initialize modalOpen
         });
     }
 
@@ -248,7 +254,8 @@ const handleJoinRoom = async (DATA: any, socketId: string, socket: ws.WebSocket)
     socket.send(JSON.stringify({
         type: "existing-producers",
         data: producersList,
-        roomId: roomId
+        roomId: roomId,
+        trailerState: room.trailerState
     }));
 };
 
@@ -519,6 +526,37 @@ const handleProducerClose = async (DATA: any, socketId: string) => {
             eachPeer.socket.send(JSON.stringify({
                 type: "producer-closed",
                 data: { producerId },
+            }));
+        }
+    });
+};
+
+const handleTrailerUpdate = (DATA: any, socketId: string) => {
+    const roomId = socketRoomMap.get(socketId);
+    if (!roomId) return;
+    const room = rooms.get(roomId);
+    if (!room) return;
+
+    // Advance time if currently playing before applying update
+    let newTime = room.trailerState.time;
+    if (room.trailerState.isPlaying) {
+        newTime += (Date.now() - room.trailerState.updatedAt) / 1000;
+    }
+
+    // Merge only what was sent — don't clobber fields that weren't included
+    room.trailerState = {
+        isPlaying: DATA.data.isPlaying ?? room.trailerState.isPlaying,
+        modalOpen: DATA.data.modalOpen ?? room.trailerState.modalOpen, // ← NEW
+        time: DATA.data.modalOpen !== undefined ? newTime : (DATA.data.time ?? newTime),
+        updatedAt: Date.now(),
+    };
+
+    // Broadcast to everyone including sender so their own state stays in sync
+    room.peers.forEach((peer) => {
+        if (peer.socket?.readyState === ws.OPEN) {
+            peer.socket.send(JSON.stringify({
+                type: "trailer-state",
+                data: room.trailerState
             }));
         }
     });
