@@ -1,4 +1,3 @@
-import React from "react";
 import { LampContainer } from "@repo/ui/components/acternity/lamp";
 import { motion } from "framer-motion";
 
@@ -6,6 +5,9 @@ const Hero = () => {
   // Explicit shadow tokens to prevent Framer Motion console errors
   const glowShadow = "0px 0px 50px 0px hsl(0 100% 65% / 0.3)";
   const glowNone = "0px 0px 0px 0px hsl(0 100% 65% / 0)";
+  const videoUrl =
+    import.meta.env.VITE_HOME_BACKGROUND_VIDEO ||
+    "https://cdn.coverr.co/videos/coverr-a-dark-cinema-room-1569769474010?download=1080p";
 
   return (
     /* 1. ROOT SECTION: Dynamic height and forced dark theme */
@@ -16,7 +18,7 @@ const Hero = () => {
         <video 
           autoPlay muted loop playsInline 
           className="h-full w-full object-cover opacity-10 scale-105 blur-[3px]" 
-          src="/videos/cinematic.mp4" 
+          src={videoUrl} 
         />
         <div className="absolute inset-0 bg-gradient-to-b from-background via-transparent to-background" />
       </div>

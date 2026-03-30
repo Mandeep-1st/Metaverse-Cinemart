@@ -1,7 +1,9 @@
 import { Router } from "express";
 import {
+    discoverMovies,
     getMovieDetails,
     getRecommendedMovies,
+    getRelatedMovies,
     getUserPreference,
     searchMovie,
     seedInDatabase,
@@ -16,11 +18,13 @@ import { verifyJwt } from "../middlewares/auth.middleware";
 const router: Router = Router();
 
 router.get("/search", searchMovie)
+router.get("/discover", discoverMovies)
 router.get("/recommendations", getRecommendedMovies)
+router.get("/:tmdbId/related", getRelatedMovies)
 router.get("/:tmdbId", getMovieDetails)
 
 // Admin Routes
-router.post("/seed", seedInDatabase)
+router.post("/seed", verifyJwt, seedInDatabase)
 
 // User Preference Routes
 router.post("/preference/init", initUserPreference) // Smart Init

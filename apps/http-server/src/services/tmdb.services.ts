@@ -54,6 +54,40 @@ export class TMDBService {
         return totalIngested;
     }
 
+    static async discoverMovies(category: string = "popular", page: number = 1) {
+        const normalizedCategory = category === "top_rated" ? "top_rated" : "popular";
+        const response = await axios.get(
+            `${TMDB_BASE_URL}/movie/${normalizedCategory}`,
+            this.getOptions({ page })
+        );
+
+        const movies = response.data.results || [];
+
+        Promise.all(movies.slice(0, 12).map((m: any) => this.fetchAndIngestMovie(m.id)))
+            .catch((error: any) => console.error("Error ingesting discover results", error));
+
+        return movies.map((m: any) => ({
+            tmdb_id: m.id,
+            title: m.title,
+            overview: m.overview,
+            images: {
+                poster: m.poster_path
+                    ? `https://image.tmdb.org/t/p/original${m.poster_path}`
+                    : null,
+                backdrop: m.backdrop_path
+                    ? `https://image.tmdb.org/t/p/original${m.backdrop_path}`
+                    : null,
+            },
+            metrics: {
+                vote_average: m.vote_average,
+                popularity: m.popularity,
+            },
+            details: {
+                release_date: m.release_date,
+            },
+        }));
+    }
+
     // 2. While Searching Checks DB first, then TMDB
     static async searchMovies(query: string) {
         // A. Check Local DB first
@@ -85,7 +119,10 @@ export class TMDBService {
 
     static async getMovieOrFetch(tmdbId: string) {
         // A. Check DB
-        const existingMovie = await MovieModel.findOne({ tmdb_id: tmdbId });
+        const normalizedId = Number(tmdbId);
+        const existingMovie = await MovieModel.findOne({
+            tmdb_id: Number.isNaN(normalizedId) ? tmdbId : normalizedId
+        });
         if (existingMovie) {
             console.log("Movie should exist")
             return existingMovie;
@@ -94,6 +131,39 @@ export class TMDBService {
         // B. If Not in DB? Fetch, Ingest.
         console.log("Movie not in DB. Fetching from TMDB......");
         return await this.fetchAndIngestMovie(tmdbId);
+    }
+
+    static async getRelatedMovies(tmdbId: string | number, limit: number = 12) {
+        const response = await axios.get(
+            `${TMDB_BASE_URL}/movie/${tmdbId}/recommendations`,
+            this.getOptions()
+        );
+
+        const movies = (response.data.results || []).slice(0, limit);
+
+        Promise.all(movies.map((movie: any) => this.fetchAndIngestMovie(movie.id)))
+            .catch((error: any) => console.error("Error ingesting related movies", error));
+
+        return movies.map((m: any) => ({
+            tmdb_id: m.id,
+            title: m.title,
+            overview: m.overview,
+            images: {
+                poster: m.poster_path
+                    ? `https://image.tmdb.org/t/p/original${m.poster_path}`
+                    : null,
+                backdrop: m.backdrop_path
+                    ? `https://image.tmdb.org/t/p/original${m.backdrop_path}`
+                    : null,
+            },
+            metrics: {
+                vote_average: m.vote_average,
+                popularity: m.popularity,
+            },
+            details: {
+                release_date: m.release_date,
+            },
+        }));
     }
 
     private static async fetchAndIngestMovie(tmdbId: string | number) {

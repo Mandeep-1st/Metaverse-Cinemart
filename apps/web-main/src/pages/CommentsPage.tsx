@@ -114,7 +114,7 @@ const CommentsPage = () => {
           </div>
 
           <AnimatePresence mode="popLayout">
-            {comments.map((comment, index) => (
+            {comments.map((comment) => (
               <motion.div
                 key={comment.id}
                 layout // Smoothly pushes old comments down when a new one is added

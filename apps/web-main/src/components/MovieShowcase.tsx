@@ -1,9 +1,6 @@
 import React from "react";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 
-const webRoomUrl =
-  import.meta.env.VITE_WEB_ROOM_URL || "http://localhost:5173";
-
 const movies = [
   {
     id: 157336,
@@ -77,8 +74,7 @@ const MovieCard = ({
       onMouseMove={handleMouseMove}
       onMouseLeave={() => { x.set(0); y.set(0); }}
       onClick={() => {
-        // Phase 1 requirement: redirect to `web-room` and pass `movieId` via URL.
-        window.location.assign(`${webRoomUrl}/?movieId=${movie.id}`);
+        window.location.assign(`/movies/${movie.id}`);
       }}
       style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
       className="group relative h-[400px] sm:h-[450px] w-full cursor-pointer perspective-1000"

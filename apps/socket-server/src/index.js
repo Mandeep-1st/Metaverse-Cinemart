@@ -68,6 +68,16 @@ const mediaCodecs = [
 // Global State (In production, consider Redis for room state if scaling to multiple workers/servers)
 const rooms = new Map();
 const socketRoomMap = new Map();
+const broadcastToRoom = (roomId, payload) => {
+    const room = rooms.get(roomId);
+    if (!room)
+        return;
+    room.peers.forEach((peer) => {
+        if (peer.socket?.readyState === ws.OPEN) {
+            peer.socket.send(JSON.stringify(payload));
+        }
+    });
+};
 const initWorker = async () => {
     worker = await mediasoup.createWorker({
         logLevel: 'warn',
@@ -139,6 +149,18 @@ wss.on('connection', async (socket) => {
                 case "producer-close":
                     await handleProducerClose(DATA, socketId);
                     break;
+                case "trailer-update":
+                    handleTrailerUpdate(DATA, socketId);
+                    break;
+                case "chat-send":
+                    handleChatSend(DATA, socketId);
+                    break;
+                case "chat-like":
+                    handleChatLike(DATA, socketId);
+                    break;
+                case "vote-submit":
+                    handleVoteSubmit(DATA, socketId);
+                    break;
                 default:
                     console.warn(`Unknown message type: ${DATA.type}`);
             }
@@ -174,6 +196,18 @@ const handleDisconnect = (socketId) => {
     });
     peer?.transports.senderTransport?.close();
     peer?.transports.receiverTransport?.close();
+    const previousVote = peerRoom?.voteByPeer.get(socketId);
+    if (peerRoom && previousVote) {
+        const previousOption = peerRoom.voteState.get(previousVote);
+        if (previousOption) {
+            previousOption.count = Math.max(0, previousOption.count - 1);
+        }
+        peerRoom.voteByPeer.delete(socketId);
+        broadcastToRoom(peerRoomId, {
+            type: "vote-state",
+            data: Array.from(peerRoom.voteState.values()).filter((option) => option.count > 0),
+        });
+    }
     peerRoom?.peers.delete(socketId);
     socketRoomMap.delete(socketId);
     // Notify remaining peers so they can remove the stale avatar
@@ -200,7 +234,11 @@ const handleJoinRoom = async (DATA, socketId, socket) => {
         rooms.set(roomId, {
             router: await worker.createRouter({ mediaCodecs }),
             peers: new Map(),
-            producers: new Map()
+            producers: new Map(),
+            chatMessages: [],
+            voteState: new Map(),
+            voteByPeer: new Map(),
+            trailerState: { isPlaying: true, time: 0, updatedAt: Date.now(), modalOpen: false } // ← initialize modalOpen
         });
     }
     const room = rooms.get(roomId);
@@ -227,7 +265,15 @@ const handleJoinRoom = async (DATA, socketId, socket) => {
     socket.send(JSON.stringify({
         type: "existing-producers",
         data: producersList,
-        roomId: roomId
+        roomId: roomId,
+        trailerState: room.trailerState
+    }));
+    socket.send(JSON.stringify({
+        type: "room-bootstrap",
+        data: {
+            chatMessages: room.chatMessages,
+            voteState: Array.from(room.voteState.values()),
+        }
     }));
 };
 const handleGetRtpCapabilities = (socketId, socket, requestId) => {
@@ -477,6 +523,121 @@ const handleProducerClose = async (DATA, socketId) => {
                 data: { producerId },
             }));
         }
+    });
+};
+const handleTrailerUpdate = (DATA, socketId) => {
+    const roomId = socketRoomMap.get(socketId);
+    if (!roomId)
+        return;
+    const room = rooms.get(roomId);
+    if (!room)
+        return;
+    // Advance time if currently playing before applying update
+    let newTime = room.trailerState.time;
+    if (room.trailerState.isPlaying) {
+        newTime += (Date.now() - room.trailerState.updatedAt) / 1000;
+    }
+    // Merge only what was sent — don't clobber fields that weren't included
+    room.trailerState = {
+        isPlaying: DATA.data.isPlaying ?? room.trailerState.isPlaying,
+        modalOpen: DATA.data.modalOpen ?? room.trailerState.modalOpen, // ← NEW
+        time: DATA.data.modalOpen !== undefined ? newTime : (DATA.data.time ?? newTime),
+        updatedAt: Date.now(),
+    };
+    // Broadcast to everyone including sender so their own state stays in sync
+    room.peers.forEach((peer) => {
+        if (peer.socket?.readyState === ws.OPEN) {
+            peer.socket.send(JSON.stringify({
+                type: "trailer-state",
+                data: room.trailerState
+            }));
+        }
+    });
+};
+const handleChatSend = (DATA, socketId) => {
+    const roomId = socketRoomMap.get(socketId);
+    if (!roomId)
+        return;
+    const room = rooms.get(roomId);
+    if (!room)
+        return;
+    const text = String(DATA?.data?.text ?? "").trim();
+    if (!text)
+        return;
+    const message = {
+        id: (0, crypto_1.randomUUID)(),
+        senderId: String(DATA?.data?.senderId ?? socketId),
+        senderName: String(DATA?.data?.senderName ?? "Guest"),
+        text,
+        likes: 0,
+        likedBy: [],
+        createdAt: Date.now(),
+    };
+    room.chatMessages = [...room.chatMessages.slice(-59), message];
+    broadcastToRoom(roomId, {
+        type: "chat-message",
+        data: message,
+    });
+};
+const handleChatLike = (DATA, socketId) => {
+    const roomId = socketRoomMap.get(socketId);
+    if (!roomId)
+        return;
+    const room = rooms.get(roomId);
+    if (!room)
+        return;
+    const messageId = String(DATA?.data?.messageId ?? "");
+    if (!messageId)
+        return;
+    const likerId = String(DATA?.data?.senderId ?? socketId);
+    const targetMessage = room.chatMessages.find((message) => message.id === messageId);
+    if (!targetMessage)
+        return;
+    if (targetMessage.likedBy.includes(likerId)) {
+        targetMessage.likedBy = targetMessage.likedBy.filter((id) => id !== likerId);
+    }
+    else {
+        targetMessage.likedBy.push(likerId);
+    }
+    targetMessage.likes = targetMessage.likedBy.length;
+    broadcastToRoom(roomId, {
+        type: "chat-message-liked",
+        data: {
+            messageId: targetMessage.id,
+            likes: targetMessage.likes,
+        },
+    });
+};
+const handleVoteSubmit = (DATA, socketId) => {
+    const roomId = socketRoomMap.get(socketId);
+    if (!roomId)
+        return;
+    const room = rooms.get(roomId);
+    if (!room)
+        return;
+    const optionId = String(DATA?.data?.optionId ?? "");
+    const label = String(DATA?.data?.label ?? "Untitled option");
+    if (!optionId)
+        return;
+    const previousVote = room.voteByPeer.get(socketId);
+    if (previousVote && room.voteState.has(previousVote)) {
+        const previousOption = room.voteState.get(previousVote);
+        previousOption.count = Math.max(0, previousOption.count - 1);
+    }
+    const currentOption = room.voteState.get(optionId) || {
+        optionId,
+        label,
+        count: 0,
+    };
+    currentOption.label = label;
+    currentOption.count += 1;
+    room.voteState.set(optionId, currentOption);
+    room.voteByPeer.set(socketId, optionId);
+    broadcastToRoom(roomId, {
+        type: "vote-state",
+        data: Array.from(room.voteState.values())
+            .filter((option) => option.count > 0)
+            .sort((a, b) => b.count - a.count),
     });
 };
 server.listen(PORT, () => {

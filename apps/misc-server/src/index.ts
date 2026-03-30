@@ -5,6 +5,8 @@ import axios from 'axios';
 
 const REDIS_HOST = process.env.SERVER_VAR_REDIS_HOST || "127.0.0.1";
 const REDIS_PORT = 6379;
+const HTTP_SERVER_URL =
+    process.env.SERVER_VAR_HTTP_SERVER_URL || "http://localhost:8001";
 
 const redis = new Redis({
     host: REDIS_HOST,
@@ -23,7 +25,10 @@ const sendPasswordToUser = async (task: any) => {
 
     // we are informing http server that we have sent the email
     console.log("Going for http")
-    const res = await axios.post('http://localhost:3002/api/v1/users/password-email-sent', { email: task.to });
+    const res = await axios.post(
+        `${HTTP_SERVER_URL.replace(/\/$/, "")}/api/v1/users/password-email-sent`,
+        { email: task.to }
+    );
     console.log(res);
 };
 

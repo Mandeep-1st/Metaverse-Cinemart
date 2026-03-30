@@ -1,210 +1,396 @@
-import { motion } from "framer-motion";
-import { Play, Plus, Star, Clock, Calendar, ChevronLeft, Film, Users } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { Play, WandSparkles, Users, ThumbsUp, Link2 } from "lucide-react";
+import LoadingScreen from "../components/common/LoadingScreen";
+import { useAuth } from "../context/AuthContext";
+import { useRoomSocket } from "../hooks/useRoomSocket";
+import { apiGet, apiPost } from "../utils/apiClient";
 
-// 1. MOCK DATA: In a real app, you would fetch this based on the URL ID (e.g., useParams)
-const movieData = {
-  title: "INTERSTELLAR",
-  tagline: "Mankind was born on Earth. It was never meant to die here.",
-  backdrop: "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?q=80&w=2072&auto=format&fit=crop",
-  poster: "https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?q=80&w=800&auto=format&fit=crop", // Using Mars as a placeholder poster
-  rating: 9.2,
-  year: "2014",
-  runtime: "2h 49m",
-  genres: ["Sci-Fi", "Drama", "Adventure"],
-  director: "Christopher Nolan",
-  studio: "Paramount Pictures",
-  synopsis: "When Earth becomes uninhabitable in the future, a farmer and ex-NASA pilot, Joseph Cooper, is tasked to pilot a spacecraft, along with a team of researchers, to find a new planet for humans. They must travel through a newly discovered wormhole to ensure humanity's survival.",
-  cast: [
-    { id: 1, name: "Matthew McConaughey", role: "Joseph Cooper", img: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=400&auto=format&fit=crop" },
-    { id: 2, name: "Anne Hathaway", role: "Amelia Brand", img: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400&auto=format&fit=crop" },
-    { id: 3, name: "Jessica Chastain", role: "Murph Cooper", img: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?q=80&w=400&auto=format&fit=crop" },
-    { id: 4, name: "Michael Caine", role: "Professor Brand", img: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=400&auto=format&fit=crop" },
-    { id: 5, name: "Matt Damon", role: "Mann", img: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=400&auto=format&fit=crop" },
-  ]
+type ApiResponse<T> = {
+  statusCode: number;
+  success: boolean;
+  message: string;
+  data: T;
 };
 
-const MovieInfo = () => {
-  return (
-    <div className="dark relative min-h-screen w-full bg-background font-sans antialiased overflow-x-hidden">
-      
-      {/* 1. CINEMATIC HERO BACKDROP */}
-      <div className="relative w-full h-[50vh] sm:h-[60vh] md:h-[75vh] lg:h-[85vh]">
-        <div className="absolute top-6 left-6 z-50">
-          <button className="flex items-center gap-2 text-foreground/70 hover:text-primary transition-colors bg-background/50 backdrop-blur-md px-4 py-2 rounded-full border border-border/20 shadow-lg group">
-            <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Back to Engine</span>
-          </button>
-        </div>
+type MovieDetails = {
+  tmdb_id: number;
+  title: string;
+  overview: string;
+  images?: {
+    poster?: string | null;
+    backdrop?: string | null;
+    logo?: string | null;
+  };
+  video?: {
+    url: string;
+    key: string;
+    site: string;
+  };
+  genres?: Array<{ id: number; name: string }>;
+  credits?: {
+    cast?: Array<{ id: number; name: string; character: string }>;
+    crew?: Array<{ id: number; name: string; job: string }>;
+  };
+  details?: {
+    release_date?: string;
+    runtime?: number;
+  };
+  metrics?: {
+    vote_average?: number;
+  };
+};
 
-        <img 
-          src={movieData.backdrop} 
-          alt="Backdrop" 
-          className="w-full h-full object-cover opacity-50 md:opacity-70"
+type RelatedMovie = {
+  tmdb_id: number;
+  title: string;
+  overview?: string;
+  images?: {
+    poster?: string | null;
+    backdrop?: string | null;
+  };
+};
+
+type RoomLookup = {
+  roomId: string;
+  movieTmdbId: number;
+  shareLink: string;
+  aiMode: boolean;
+};
+
+const webRoomUrl = import.meta.env.VITE_WEB_ROOM_URL || "http://localhost:5174";
+
+const toEmbedUrl = (url?: string) => {
+  if (!url) return "";
+  if (!url.startsWith("http")) return `https://www.youtube.com/embed/${url}`;
+  const parsed = new URL(url);
+  const key = parsed.searchParams.get("v");
+  return key ? `https://www.youtube.com/embed/${key}?autoplay=1` : url;
+};
+
+export default function MovieInfo() {
+  const navigate = useNavigate();
+  const { movieId } = useParams();
+  const { user, loading } = useAuth();
+  const [movie, setMovie] = useState<MovieDetails | null>(null);
+  const [relatedMovies, setRelatedMovies] = useState<RelatedMovie[]>([]);
+  const [busy, setBusy] = useState(true);
+  const [chatInput, setChatInput] = useState("");
+  const [actionStatus, setActionStatus] = useState("");
+  const [joinCode, setJoinCode] = useState("");
+
+  const numericMovieId = useMemo(() => Number(movieId), [movieId]);
+  const lobbyRoomId = Number.isFinite(numericMovieId)
+    ? `movie-lobby-${numericMovieId}`
+    : null;
+  const roomSocket = useRoomSocket(lobbyRoomId);
+
+  useEffect(() => {
+    if (!Number.isFinite(numericMovieId) || !user) return;
+
+    const run = async () => {
+      setBusy(true);
+      try {
+        const [movieResponse, relatedResponse] = await Promise.all([
+          apiGet<ApiResponse<MovieDetails>>(`/movies/${numericMovieId}`),
+          apiGet<ApiResponse<RelatedMovie[]>>(`/movies/${numericMovieId}/related`),
+        ]);
+
+        setMovie(movieResponse.data);
+        setRelatedMovies(relatedResponse.data);
+
+        apiPost("/movies/whenclicked", {
+          username: user.username,
+          movie: numericMovieId,
+        }).catch(() => {});
+      } finally {
+        setBusy(false);
+      }
+    };
+
+    run();
+  }, [numericMovieId, user]);
+
+  const createRoom = async (aiMode: boolean) => {
+    if (!movie) return;
+
+    setActionStatus(aiMode ? "Creating AI room..." : "Creating room...");
+
+    try {
+      const response = await apiPost<
+        ApiResponse<{ room: RoomLookup; shareLink: string }>
+      >("/rooms", {
+        movieId: movie.tmdb_id,
+        label: aiMode ? `${movie.title} AI Room` : `${movie.title} Watch Party`,
+        aiMode,
+        visibility: "private",
+        maxParticipants: 8,
+      });
+
+      window.location.assign(response.data.shareLink);
+    } catch (error) {
+      setActionStatus(error instanceof Error ? error.message : "Room creation failed.");
+    }
+  };
+
+  const joinRoom = async () => {
+    if (!joinCode.trim()) return;
+
+    setActionStatus("Checking room...");
+
+    try {
+      const response = await apiGet<ApiResponse<RoomLookup>>(`/rooms/${joinCode.trim()}`);
+      window.location.assign(response.data.shareLink);
+    } catch (error) {
+      setActionStatus(error instanceof Error ? error.message : "Room not found.");
+    }
+  };
+
+  if (loading || busy || !user || !movie) {
+    return <LoadingScreen label="Loading movie hub..." />;
+  }
+
+  return (
+    <div className="dark min-h-screen bg-background text-foreground">
+      <div className="relative h-[58vh] overflow-hidden">
+        <img
+          src={
+            movie.images?.backdrop ||
+            "https://images.unsplash.com/photo-1478720568477-152d9b164e26?q=80&w=2072&auto=format&fit=crop"
+          }
+          alt={movie.title}
+          className="h-full w-full object-cover opacity-45"
         />
-        {/* Gradients to seamlessly blend the image into the background color */}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/65 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-r from-background via-background/40 to-transparent" />
+        <button
+          onClick={() => navigate("/home")}
+          className="absolute top-8 left-8 z-20 rounded-full border border-border/20 bg-background/60 px-5 py-3 text-[10px] font-black uppercase tracking-[0.35em]"
+        >
+          Back Home
+        </button>
       </div>
 
-      {/* 2. MAIN CONTENT OVERLAP */}
-      <div className="relative z-20 max-w-7xl mx-auto px-6 sm:px-12 -mt-32 sm:-mt-48 md:-mt-64 pb-24">
-        <div className="flex flex-col md:flex-row gap-8 md:gap-16">
-          
-          {/* LEFT COLUMN: Floating Poster */}
-          <motion.div 
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, type: "spring" }}
-            className="w-48 sm:w-64 md:w-80 flex-shrink-0 mx-auto md:mx-0 shadow-[var(--shadow-2xl)] rounded-[var(--radius)] overflow-hidden border border-border/20 bg-card z-30 relative"
-          >
-            {/* Edge Glow */}
-            <div className="absolute inset-0 shadow-[inset_0_0_40px_rgba(0,0,0,0.8)] z-10 pointer-events-none" />
-            <img 
-              src={movieData.poster} 
-              alt={movieData.title} 
-              className="w-full h-auto object-cover hover:scale-105 transition-transform duration-700"
-            />
-          </motion.div>
-
-          {/* RIGHT COLUMN: Movie Info */}
-          <div className="flex flex-col justify-end pt-4 md:pt-20 w-full">
-            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8, delay: 0.2 }}>
-              
-              {/* Tagline & Title */}
-              <p className="text-primary font-black uppercase tracking-[0.3em] sm:tracking-[0.5em] text-[10px] sm:text-xs mb-3 md:mb-4 drop-shadow-md">
-                {movieData.tagline}
-              </p>
-              <h1 className="text-5xl sm:text-7xl md:text-8xl font-black text-foreground tracking-tighter uppercase italic leading-[0.85] mb-6 md:mb-8 drop-shadow-2xl">
-                {movieData.title}
-              </h1>
-
-              {/* Quick Stats Row */}
-              <div className="flex flex-wrap items-center gap-4 sm:gap-8 mb-8">
-                <div className="flex items-center gap-2 bg-primary/10 px-4 py-2 rounded-full border border-primary/20">
-                  <Star className="w-4 h-4 sm:w-5 sm:h-5 fill-primary text-primary" />
-                  <span className="text-foreground font-black text-sm sm:text-lg">{movieData.rating}</span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground font-bold tracking-widest uppercase text-[10px] sm:text-xs">
-                  <Clock className="w-4 h-4" /> {movieData.runtime}
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground font-bold tracking-widest uppercase text-[10px] sm:text-xs">
-                  <Calendar className="w-4 h-4" /> {movieData.year}
-                </div>
+      <div className="relative z-10 mx-auto -mt-40 max-w-7xl px-6 pb-24">
+        <div className="grid gap-8 lg:grid-cols-[1.25fr_0.75fr]">
+          <div className="space-y-8">
+            <div className="rounded-[var(--radius)] border border-border/20 bg-card/30 p-6 backdrop-blur-xl">
+              <div className="text-primary text-[10px] font-black uppercase tracking-[0.45em]">
+                Movie Module
               </div>
-
-              {/* Genres */}
-              <div className="flex flex-wrap gap-3 mb-10">
-                {movieData.genres.map((genre, i) => (
-                  <span key={i} className="px-4 py-1.5 rounded-full border border-border/20 text-muted-foreground text-[10px] sm:text-xs font-black uppercase tracking-widest bg-card/30 backdrop-blur-sm">
-                    {genre}
+              <h1 className="mt-4 text-4xl md:text-6xl font-black italic uppercase tracking-tighter">
+                {movie.title}
+              </h1>
+              <p className="mt-5 max-w-3xl text-muted-foreground text-lg leading-relaxed">
+                {movie.overview}
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                {(movie.genres || []).slice(0, 5).map((genre) => (
+                  <span
+                    key={genre.id}
+                    className="rounded-full border border-border/20 px-4 py-2 text-[10px] font-black uppercase tracking-[0.35em] text-muted-foreground"
+                  >
+                    {genre.name}
                   </span>
                 ))}
               </div>
+            </div>
 
-              {/* Synopsis */}
-              <div className="relative border-l-2 border-primary/40 pl-6 mb-12 max-w-3xl">
-                <p className="text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed font-light">
-                  {movieData.synopsis}
-                </p>
-              </div>
+            <div className="overflow-hidden rounded-[var(--radius)] border border-border/20 bg-black shadow-2xl">
+              <iframe
+                title={movie.title}
+                src={toEmbedUrl(movie.video?.url)}
+                allow="autoplay; encrypted-media; fullscreen"
+                allowFullScreen
+                className="aspect-video w-full"
+              />
+            </div>
 
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
-                <motion.button 
-                  whileHover={{ scale: 1.05, boxShadow: "var(--shadow-xl)" }}
-                  whileTap={{ scale: 0.95 }}
-                  className="w-full sm:w-auto flex items-center justify-center gap-3 bg-primary text-primary-foreground px-8 sm:px-12 py-4 rounded-[var(--radius)] font-black uppercase tracking-widest text-[10px] sm:text-xs transition-all shadow-lg"
-                >
-                  <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current" /> Initialize Trailer
-                </motion.button>
-                <motion.button 
-                  whileHover={{ scale: 1.05, backgroundColor: "var(--card)" }}
-                  whileTap={{ scale: 0.95 }}
-                  className="w-full sm:w-auto flex items-center justify-center gap-3 bg-transparent border border-border/40 text-foreground px-8 sm:px-12 py-4 rounded-[var(--radius)] font-black uppercase tracking-widest text-[10px] sm:text-xs hover:border-foreground/50 transition-all"
-                >
-                  <Plus className="w-4 h-4 sm:w-5 sm:h-5" /> Add to Queue
-                </motion.button>
-              </div>
-
-            </motion.div>
-          </div>
-        </div>
-
-        {/* 3. CAST & CREW SCROLLABLE GRID */}
-        <div className="mt-24 sm:mt-32 w-full">
-          <div className="flex items-center gap-4 mb-8">
-            <div className="h-[2px] w-8 bg-primary shadow-sm" />
-            <h3 className="text-foreground font-black uppercase tracking-[0.4em] text-[10px] sm:text-xs flex items-center gap-2">
-              <Users className="w-4 h-4 text-primary" /> Verified Subjects // Cast
-            </h3>
-          </div>
-
-          {/* Horizontal Scroll Container */}
-          <div className="flex gap-4 sm:gap-6 overflow-x-auto pb-8 no-scrollbar snap-x snap-mandatory">
-            <style dangerouslySetInnerHTML={{ __html: `.no-scrollbar::-webkit-scrollbar { display: none; }` }} />
-            {movieData.cast.map((actor, index) => (
-              <motion.div 
-                key={actor.id}
-                initial={{ opacity: 0, x: 20 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-                className="flex-shrink-0 w-32 sm:w-40 snap-start group cursor-pointer"
-              >
-                <div className="w-full aspect-[2/3] rounded-[var(--radius)] overflow-hidden bg-card border border-border/20 mb-4 relative shadow-lg group-hover:border-primary/50 transition-colors">
-                  <img src={actor.img} alt={actor.name} className="w-full h-full object-cover grayscale-[0.3] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-700" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent opacity-60 group-hover:opacity-20 transition-opacity" />
+            <div className="rounded-[var(--radius)] border border-border/20 bg-card/20 p-6">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-primary text-[10px] font-black uppercase tracking-[0.45em]">
+                    Recommendation Shelf
+                  </div>
+                  <h2 className="mt-3 text-2xl font-black italic">What to watch next</h2>
                 </div>
-                <h4 className="text-foreground font-bold text-xs sm:text-sm tracking-tight leading-tight group-hover:text-primary transition-colors">
-                  {actor.name}
-                </h4>
-                <p className="text-muted-foreground text-[10px] sm:text-xs mt-1 truncate">
-                  {actor.role}
-                </p>
-              </motion.div>
-            ))}
+                <div className="rounded-full border border-border/20 px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">
+                  Live votes {roomSocket.votes.reduce((sum, vote) => sum + vote.count, 0)}
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {relatedMovies.map((relatedMovie) => {
+                  const voteCount =
+                    roomSocket.votes.find(
+                      (vote) => vote.optionId === String(relatedMovie.tmdb_id),
+                    )?.count || 0;
+
+                  return (
+                    <div
+                      key={relatedMovie.tmdb_id}
+                      className="rounded-3xl border border-border/20 bg-background/30 overflow-hidden"
+                    >
+                      <img
+                        src={
+                          relatedMovie.images?.poster ||
+                          relatedMovie.images?.backdrop ||
+                          "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?q=80&w=900&auto=format&fit=crop"
+                        }
+                        alt={relatedMovie.title}
+                        className="h-56 w-full object-cover"
+                      />
+                      <div className="p-4">
+                        <div className="font-black text-lg">{relatedMovie.title}</div>
+                        <p className="mt-2 text-sm text-muted-foreground line-clamp-3">
+                          {relatedMovie.overview}
+                        </p>
+                        <div className="mt-4 flex gap-3">
+                          <button
+                            onClick={() => navigate(`/movies/${relatedMovie.tmdb_id}`)}
+                            className="rounded-full border border-border/20 px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em]"
+                          >
+                            Open
+                          </button>
+                          <button
+                            onClick={() =>
+                              roomSocket.submitVote(
+                                String(relatedMovie.tmdb_id),
+                                relatedMovie.title,
+                              )
+                            }
+                            className="rounded-full bg-primary px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-primary-foreground"
+                          >
+                            Vote {voteCount > 0 ? `(${voteCount})` : ""}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="rounded-[var(--radius)] border border-border/20 bg-card/30 p-6 backdrop-blur-xl">
+              <div className="text-primary text-[10px] font-black uppercase tracking-[0.45em]">
+                Actions
+              </div>
+              <div className="mt-5 grid gap-3">
+                <button
+                  onClick={() => createRoom(false)}
+                  className="flex items-center justify-center gap-3 rounded-full bg-primary px-5 py-4 text-[10px] font-black uppercase tracking-[0.35em] text-primary-foreground"
+                >
+                  <Play className="h-4 w-4" />
+                  Create Room
+                </button>
+                <button
+                  onClick={() => createRoom(true)}
+                  className="flex items-center justify-center gap-3 rounded-full border border-border/20 px-5 py-4 text-[10px] font-black uppercase tracking-[0.35em]"
+                >
+                  <WandSparkles className="h-4 w-4 text-primary" />
+                  AI Room
+                </button>
+              </div>
+
+              <div className="mt-6 rounded-3xl border border-border/20 bg-background/30 p-4">
+                <div className="text-[10px] font-black uppercase tracking-[0.35em] text-muted-foreground">
+                  Join Room
+                </div>
+                <div className="mt-3 flex gap-3">
+                  <input
+                    value={joinCode}
+                    onChange={(event) => setJoinCode(event.target.value)}
+                    placeholder="Paste room id"
+                    className="flex-1 rounded-full border border-border/20 bg-card/30 px-4 py-3 outline-none"
+                  />
+                  <button
+                    onClick={joinRoom}
+                    className="rounded-full bg-foreground px-4 py-3 text-background text-[10px] font-black uppercase tracking-[0.3em]"
+                  >
+                    Join
+                  </button>
+                </div>
+                <button
+                  onClick={() => navigator.clipboard.writeText(`${webRoomUrl}/?movieId=${movie.tmdb_id}`)}
+                  className="mt-3 flex items-center gap-2 text-sm text-primary"
+                >
+                  <Link2 className="h-4 w-4" />
+                  Copy direct movie room base link
+                </button>
+              </div>
+
+              {actionStatus && <div className="mt-4 text-sm text-muted-foreground">{actionStatus}</div>}
+            </div>
+
+            <div className="rounded-[var(--radius)] border border-border/20 bg-card/20 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-primary text-[10px] font-black uppercase tracking-[0.45em]">
+                    Real-time Chat
+                  </div>
+                  <h2 className="mt-3 text-2xl font-black italic">Movie lounge</h2>
+                </div>
+                <div className="rounded-full border border-border/20 px-3 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">
+                  {roomSocket.connected ? "Live" : "Connecting"}
+                </div>
+              </div>
+
+              <div className="mt-6 space-y-4 max-h-[420px] overflow-y-auto pr-2">
+                {roomSocket.messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className="rounded-3xl border border-border/20 bg-background/40 p-4"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="font-black">{message.senderName}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(message.createdAt).toLocaleTimeString()}
+                      </div>
+                    </div>
+                    <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+                      {message.text}
+                    </p>
+                    <button
+                      onClick={() => roomSocket.toggleLike(message.id, user._id)}
+                      className="mt-4 flex items-center gap-2 text-sm text-primary"
+                    >
+                      <ThumbsUp className="h-4 w-4" />
+                      {message.likes}
+                    </button>
+                  </div>
+                ))}
+
+                {roomSocket.messages.length === 0 && (
+                  <div className="rounded-3xl border border-dashed border-border/30 p-6 text-sm text-muted-foreground">
+                    Be the first person to start the movie conversation.
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-5 flex gap-3">
+                <input
+                  value={chatInput}
+                  onChange={(event) => setChatInput(event.target.value)}
+                  placeholder="Say something about the movie..."
+                  className="flex-1 rounded-full border border-border/20 bg-background/30 px-4 py-3 outline-none"
+                />
+                <button
+                  onClick={() => {
+                    if (!chatInput.trim()) return;
+                    roomSocket.sendMessage(chatInput.trim(), user._id, user.fullName);
+                    setChatInput("");
+                  }}
+                  className="rounded-full bg-primary px-5 py-3 text-[10px] font-black uppercase tracking-[0.3em] text-primary-foreground"
+                >
+                  <Users className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-
-        {/* 4. TECHNICAL SPECS GRID */}
-        <div className="mt-16 sm:mt-24 w-full">
-          <div className="flex items-center gap-4 mb-8">
-            <div className="h-[2px] w-8 bg-primary shadow-sm" />
-            <h3 className="text-foreground font-black uppercase tracking-[0.4em] text-[10px] sm:text-xs flex items-center gap-2">
-              <Film className="w-4 h-4 text-primary" /> Engine Data // Specs
-            </h3>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
-            <div className="bg-card/5 border border-border/10 p-6 rounded-[var(--radius)] backdrop-blur-sm">
-              <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest mb-2">Director</p>
-              <p className="text-foreground font-bold text-sm sm:text-base">{movieData.director}</p>
-            </div>
-            <div className="bg-card/5 border border-border/10 p-6 rounded-[var(--radius)] backdrop-blur-sm">
-              <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest mb-2">Studio</p>
-              <p className="text-foreground font-bold text-sm sm:text-base">{movieData.studio}</p>
-            </div>
-            <div className="bg-card/5 border border-border/10 p-6 rounded-[var(--radius)] backdrop-blur-sm">
-              <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest mb-2">Release Format</p>
-              <p className="text-foreground font-bold text-sm sm:text-base">IMAX / 70mm</p>
-            </div>
-            <div className="bg-card/5 border border-border/10 p-6 rounded-[var(--radius)] backdrop-blur-sm">
-              <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest mb-2">Engine Confidence</p>
-              <p className="text-primary font-black text-sm sm:text-base italic">98.5% MATCH</p>
-            </div>
-          </div>
-        </div>
-
-        {/* 5. DISCUSSION THREAD SLOT
-          Import and place your <DiscussionThread /> component right here!
-          <div className="mt-32">
-            <DiscussionThread />
-          </div>
-        */}
-
       </div>
     </div>
   );
-};
-
-export default MovieInfo;
+}
