@@ -16,6 +16,9 @@ import {
   Cupboards,
   AIDoor,
 } from "../components/TheatreProps";
+import { AiModePanel, type AiModeId } from "@repo/ui/components/ai-mode-panel";
+import { MovieRichDetails } from "@repo/ui/components/movie-rich-details";
+import { PersistentCommentsPanel } from "@repo/ui/components/persistent-comments-panel";
 import { SocketProvider, useSocket } from "../context/SocketProvider";
 import { apiGet, apiPost } from "../utils/apiClient";
 import type {
@@ -62,6 +65,28 @@ type MovieDetails = {
   };
   video?: { url: string; key: string; site: string };
   genres?: Array<{ id?: number; name?: string }> | Array<any>;
+  credits?: {
+    cast?: Array<{
+      id?: number;
+      name?: string;
+      character?: string;
+      profile_path?: string | null;
+      order?: number;
+    }>;
+    crew?: Array<{
+      id?: number;
+      name?: string;
+      job?: string;
+      profile_path?: string | null;
+    }>;
+  };
+  details?: {
+    release_date?: string;
+    runtime?: number;
+  };
+  metrics?: {
+    vote_average?: number;
+  };
 };
 
 type Mode = "solo" | "watchparty" | "create-room";
@@ -73,6 +98,17 @@ type ViewerUser = {
   username: string;
   email: string;
   avatar?: string;
+  profilePhoto?: string;
+};
+
+type MovieComment = {
+  _id: string;
+  username: string;
+  fullName: string;
+  avatar?: string;
+  profilePhoto?: string;
+  text: string;
+  createdAt: string;
 };
 
 type RoomCreationPayload = {
@@ -197,6 +233,39 @@ function useMovieDetails(movieId: number | null) {
   }, [movieId]);
 
   return { movie, status } as const;
+}
+
+function mapMovieToRichDetails(movie: MovieDetails) {
+  const actors = (movie.credits?.cast || [])
+    .slice()
+    .sort((left, right) => (left.order || 0) - (right.order || 0))
+    .slice(0, 5)
+    .map((actor) => ({
+      id: actor.id,
+      name: actor.name || "Unknown Actor",
+      subtitle: actor.character || "Cast",
+      image: actor.profile_path,
+    }));
+
+  const directorEntry = (movie.credits?.crew || []).find(
+    (crewMember) => crewMember.job === "Director",
+  );
+
+  return {
+    actors,
+    director: directorEntry
+      ? {
+          id: directorEntry.id,
+          name: directorEntry.name || "Unknown Director",
+          subtitle: "Director",
+          image: directorEntry.profile_path,
+        }
+      : null,
+    genres: (movie.genres || []).map((genre: any) => genre?.name).filter(Boolean),
+    releaseDate: movie.details?.release_date,
+    runtime: movie.details?.runtime,
+    rating: movie.metrics?.vote_average,
+  };
 }
 
 function RemoteVideo({ stream }: { stream: MediaStream }) {
@@ -1135,6 +1204,430 @@ function VoteDock({
               </div>
             );
           })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PersistentMovieCommentsOverlay({
+  movieId,
+  onClose,
+  currentUser,
+}: {
+  movieId: number;
+  onClose: () => void;
+  currentUser: ViewerUser | null;
+}) {
+  const [comments, setComments] = useState<MovieComment[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [status, setStatus] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadComments = async () => {
+      setLoading(true);
+      try {
+        const response = await apiGet<ApiResponse<MovieComment[]>>(
+          `/movies/${movieId}/comments`,
+        );
+        if (!mounted) return;
+        setComments(response.data);
+      } catch {
+        if (!mounted) return;
+        setComments([]);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadComments();
+    return () => {
+      mounted = false;
+    };
+  }, [movieId]);
+
+  const submitComment = async () => {
+    if (!currentUser || !input.trim()) return;
+
+    setSubmitting(true);
+    setStatus("");
+    try {
+      const response = await apiPost<ApiResponse<MovieComment>>(
+        `/movies/${movieId}/comments`,
+        {
+          text: input.trim(),
+        },
+      );
+      setComments((previous) => [response.data, ...previous]);
+      setInput("");
+    } catch (error) {
+      setStatus(
+        error instanceof Error ? error.message : "Unable to save comment.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <OverlayShell title="Movie Comments" onClose={onClose}>
+      <PersistentCommentsPanel
+        comments={comments}
+        input={input}
+        onInputChange={setInput}
+        onSubmit={submitComment}
+        submitting={submitting}
+        composerDisabled={!currentUser}
+        currentUser={
+          currentUser
+            ? {
+                username: currentUser.username,
+                fullName: currentUser.fullName,
+                avatar: currentUser.avatar,
+                profilePhoto: currentUser.profilePhoto,
+              }
+            : null
+        }
+        title="Persistent movie discussion"
+        subtitle="These comments are stored with the movie and visible from both the movie page and the room."
+        emptyMessage={
+          loading
+            ? "Loading comments..."
+            : "No comments yet. Start the movie discussion."
+        }
+      />
+      {!currentUser && (
+        <div className="mt-4 text-sm text-amber-200">
+          Sign in through the main app to post movie comments.
+        </div>
+      )}
+      {status && <div className="mt-4 text-sm text-amber-200">{status}</div>}
+    </OverlayShell>
+  );
+}
+
+function RoomAiExperienceOverlay({
+  onClose,
+  movieId,
+  movieTitle,
+  currentUser,
+}: {
+  onClose: () => void;
+  movieId: number | null;
+  movieTitle?: string;
+  currentUser: ViewerUser | null;
+}) {
+  const [selectedMode, setSelectedMode] = useState<AiModeId | null>(null);
+  const [messages, setMessages] = useState<Array<{ role: "user" | "ai"; content: string }>>([
+    {
+      role: "ai",
+      content:
+        "Choose how you want the AI to help before starting the conversation.",
+    },
+  ]);
+  const [input, setInput] = useState("");
+  const [status, setStatus] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const introByMode: Record<AiModeId, string> = {
+    suggest:
+      "Tell me what you liked or disliked and I will suggest one movie that matches that feeling.",
+    context:
+      "Ask a contextual question about the current movie, its cast, plot, or direction.",
+    chat:
+      "Use simple chat for broader movie conversation and lightweight recommendations.",
+  };
+
+  const handleModeSelect = (mode: AiModeId) => {
+    setSelectedMode(mode);
+    setInput("");
+    setStatus("");
+    setMessages([
+      {
+        role: "ai",
+        content: introByMode[mode],
+      },
+    ]);
+  };
+
+  const submitPrompt = async () => {
+    if (!selectedMode || !input.trim()) return;
+    if (!currentUser) {
+      setStatus("Sign in through the main app to use AI features.");
+      return;
+    }
+
+    const prompt = input.trim();
+    setLoading(true);
+    setStatus("");
+    setInput("");
+    setMessages((previous) => [
+      ...previous,
+      {
+        role: "user",
+        content: prompt,
+      },
+    ]);
+
+    try {
+      let nextContent = "The AI room did not return a response.";
+
+      if (selectedMode === "suggest") {
+        if (!movieId) {
+          nextContent = "This mode needs a movie context first.";
+        } else {
+          const response = await apiPost<
+            ApiResponse<{ movieTitle?: string; reason?: string }>
+          >("/ai/suggest", {
+            movieId,
+            feedback: prompt,
+          });
+          nextContent = response.data.movieTitle
+            ? `${response.data.movieTitle}\n\n${response.data.reason || ""}`.trim()
+            : response.message;
+        }
+      } else if (selectedMode === "context") {
+        if (!movieId) {
+          nextContent = "This mode needs a movie context first.";
+        } else {
+          const response = await apiPost<ApiResponse<{ content?: string }>>(
+            "/ai/context-chat",
+            {
+              movieId,
+              question: prompt,
+            },
+          );
+          nextContent = response.data.content || response.message;
+        }
+      } else {
+        const response = await apiPost<ApiResponse<{ content?: string }>>(
+          "/ai/chat",
+          {
+            message: prompt,
+          },
+        );
+        nextContent = response.data.content || response.message;
+      }
+
+      setMessages((previous) => [
+        ...previous,
+        {
+          role: "ai",
+          content: nextContent,
+        },
+      ]);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "AI request failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="absolute inset-0 z-[240] flex items-center justify-center bg-black/80 p-5">
+      <div className="h-[86vh] w-[90vw] max-w-[1500px] overflow-hidden rounded-[36px] border border-white/10 bg-background/95 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">
+              Room AI
+            </div>
+            <div className="mt-2 text-xl font-black italic text-white">
+              {movieTitle ? `${movieTitle} AI Desk` : "AI Desk"}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-full border border-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-white/75"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="h-[calc(86vh-81px)] overflow-y-auto p-6">
+          <AiModePanel
+            title="Choose how the AI should help"
+            subtitle="The same three-mode AI flow is embedded directly inside the room, so nobody has to leave the theatre."
+            selectedMode={selectedMode}
+            onSelectMode={handleModeSelect}
+            messages={messages}
+            input={input}
+            onInputChange={setInput}
+            onSubmit={submitPrompt}
+            loading={loading}
+            status={status}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RichMovieInfoOverlay({
+  movieId,
+  onClose,
+}: {
+  movieId: number;
+  onClose: () => void;
+}) {
+  const { movie, status } = useMovieDetails(movieId);
+
+  if (status === "loading") {
+    return (
+      <OverlayShell title="Movie Info" onClose={onClose}>
+        <div className="text-white/80">Loading rich movie details...</div>
+      </OverlayShell>
+    );
+  }
+
+  if (status === "error" || !movie) {
+    return (
+      <OverlayShell title="Movie Info" onClose={onClose}>
+        <div className="text-red-300/90 font-bold">
+          Movie metadata could not be loaded.
+        </div>
+      </OverlayShell>
+    );
+  }
+
+  const details = mapMovieToRichDetails(movie);
+
+  return (
+    <OverlayShell title="Movie Info" onClose={onClose}>
+      <MovieRichDetails
+        title={movie.title}
+        overview={movie.overview}
+        genres={details.genres}
+        releaseDate={details.releaseDate}
+        runtime={details.runtime}
+        rating={details.rating}
+        director={details.director}
+        actors={details.actors}
+        poster={movie.images?.poster}
+        compact
+      />
+    </OverlayShell>
+  );
+}
+
+function RoomChatDrawer({
+  visible,
+  currentUser,
+}: {
+  visible: boolean;
+  currentUser: ViewerUser | null;
+}) {
+  const socket = useSocket();
+  const [messages, setMessages] = useState<any[]>([]);
+  const [input, setInput] = useState("");
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const unsubscribeBootstrap = socket.onRoomBootstrap((data) => {
+      setMessages(data?.chatMessages ?? []);
+    });
+    const unsubscribeMessage = socket.onChatMessage((message) => {
+      setMessages((previous) => [...previous, message]);
+    });
+
+    return () => {
+      unsubscribeBootstrap();
+      unsubscribeMessage();
+    };
+  }, [socket]);
+
+  if (!visible) return null;
+
+  return (
+    <div className="absolute bottom-6 right-6 z-[245] pointer-events-auto">
+      <div
+        className={`flex transition-transform duration-300 ${
+          open ? "translate-x-0" : "translate-x-[316px]"
+        }`}
+      >
+        <button
+          onClick={() => setOpen((previous) => !previous)}
+          className="mr-3 self-end rounded-full border border-border/20 bg-background/80 px-4 py-3 text-[10px] font-black uppercase tracking-[0.3em] text-white backdrop-blur-xl"
+        >
+          {open ? "Hide Chat" : "User Chat"}
+        </button>
+
+        <div className="w-[340px] rounded-[32px] border border-white/10 bg-background/90 p-4 shadow-2xl backdrop-blur-2xl">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-primary text-[10px] font-black uppercase tracking-[0.35em]">
+                User Chat
+              </div>
+              <div className="mt-2 text-sm text-white/60">
+                Real-time room conversation for people inside this watch party.
+              </div>
+            </div>
+            <div className="rounded-full border border-white/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-white/45">
+              Live
+            </div>
+          </div>
+
+          <div className="mt-4 max-h-[360px] space-y-3 overflow-y-auto pr-1">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="font-black text-white">
+                    {message.senderName}
+                  </div>
+                  <div className="text-xs text-white/35">
+                    {new Date(message.createdAt).toLocaleTimeString()}
+                  </div>
+                </div>
+                <div className="mt-2 text-sm leading-6 text-white/65">
+                  {message.text}
+                </div>
+              </div>
+            ))}
+
+            {messages.length === 0 && (
+              <div className="rounded-[24px] border border-dashed border-white/10 p-5 text-sm text-white/50">
+                Nobody has said anything in the room yet.
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 flex gap-3">
+            <input
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              placeholder={
+                currentUser
+                  ? "Send a live room message"
+                  : "Sign in through the main app to chat"
+              }
+              disabled={!currentUser}
+              className="flex-1 rounded-full border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-white/35 disabled:opacity-50"
+            />
+            <button
+              onClick={() => {
+                if (!input.trim()) return;
+                socket.emit("chat-send", {
+                  text: input.trim(),
+                  senderId: currentUser?._id ?? "guest",
+                  senderName:
+                    currentUser?.fullName || currentUser?.username || "Guest",
+                });
+                setInput("");
+              }}
+              disabled={!currentUser || !input.trim()}
+              className="rounded-full bg-primary px-4 py-3 text-[10px] font-black uppercase tracking-[0.3em] text-primary-foreground disabled:opacity-50"
+            >
+              Send
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -2559,7 +3052,12 @@ function EnterOverlay({
 
 const legacySpaceComponents = [
   TrailerModal,
+  MovieInfoOverlay,
   CommentsOverlay,
+  ContextualCommentsOverlay,
+  RoomCommentsOverlay,
+  RoomAIChatOverlay,
+  VoteDock,
   CreateRoomOverlay,
   EnterOverlay,
 ];
@@ -2781,10 +3279,9 @@ export const Space = () => {
             onSyncTrailer={handleSyncTrailer}
             onSyncModal={handleSyncModal}
           />
-          <VoteDock
-            roomId={roomId}
-            movieId={movieId}
+          <RoomChatDrawer
             visible={activeOverlay === null}
+            currentUser={viewer}
           />
         </>
       )}
@@ -2801,21 +3298,20 @@ export const Space = () => {
       <ProximityToast nearZone={nearZone} />
 
       {movieId && activeOverlay === "info" && (
-        <MovieInfoOverlay movieId={movieId} onClose={onCloseOverlay} />
+        <RichMovieInfoOverlay movieId={movieId} onClose={onCloseOverlay} />
       )}
-      {activeOverlay === "comments" && mode === "watchparty" && (
-        <RoomCommentsOverlay
+      {movieId && activeOverlay === "comments" && (
+        <PersistentMovieCommentsOverlay
+          movieId={movieId}
           onClose={onCloseOverlay}
           currentUser={viewer}
         />
       )}
-      {activeOverlay === "comments" && mode !== "watchparty" && (
-        <ContextualCommentsOverlay onClose={onCloseOverlay} />
-      )}
       {activeOverlay === "ai" && (
-        <RoomAIChatOverlay
-          mode={mode}
+        <RoomAiExperienceOverlay
           movieId={movieId}
+          movieTitle={movie?.title}
+          currentUser={viewer}
           onClose={onCloseOverlay}
         />
       )}

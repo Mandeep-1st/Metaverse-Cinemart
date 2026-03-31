@@ -117,7 +117,7 @@ export class TMDBService {
         }));
     }
 
-    static async getMovieOrFetch(tmdbId: string) {
+    static async getMovieOrFetch(tmdbId: string | number) {
         // A. Check DB
         const normalizedId = Number(tmdbId);
         const existingMovie = await MovieModel.findOne({

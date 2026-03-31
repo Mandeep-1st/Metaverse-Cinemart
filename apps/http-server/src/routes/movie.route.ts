@@ -13,6 +13,10 @@ import {
     handleWhenRoom,
     initUserPreference
 } from "../controllers/movie.controller";
+import {
+    createMovieComment,
+    listMovieComments,
+} from "../controllers/movieComment.controller";
 import { verifyJwt } from "../middlewares/auth.middleware";
 
 const router: Router = Router();
@@ -20,6 +24,8 @@ const router: Router = Router();
 router.get("/search", searchMovie)
 router.get("/discover", discoverMovies)
 router.get("/recommendations", getRecommendedMovies)
+router.get("/:tmdbId/comments", listMovieComments)
+router.post("/:tmdbId/comments", verifyJwt, createMovieComment)
 router.get("/:tmdbId/related", getRelatedMovies)
 router.get("/:tmdbId", getMovieDetails)
 

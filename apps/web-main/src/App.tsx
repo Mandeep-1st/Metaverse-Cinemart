@@ -10,6 +10,7 @@ import HomePage from "./pages/HomePage";
 import SignupPage from "./pages/SignupPage";
 import LoginPage from "./pages/LoginPage";
 import MovieInfo from "./pages/MovieInfo";
+import AiPage from "./pages/AiPage";
 import AvatarSelection from "./pages/AvatarSelection";
 import RoomsPage from "./pages/RoomsPage";
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -92,6 +93,7 @@ export default function App() {
           <Route element={<ProtectedRoutes />}>
             <Route path="/home" element={<HomePage />} />
             <Route path="/movies/:movieId" element={<MovieInfo />} />
+            <Route path="/movies/:movieId/ai" element={<AiPage />} />
             <Route path="/rooms" element={<RoomsPage />} />
           </Route>
 
