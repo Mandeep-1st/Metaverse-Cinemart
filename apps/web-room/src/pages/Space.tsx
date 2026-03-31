@@ -116,10 +116,6 @@ type ViewerUser = {
   username: string;
   email: string;
   avatar?: string;
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 6061ee5 (That's some optmisation)
   profilePhoto?: string;
 };
 
@@ -131,11 +127,6 @@ type MovieComment = {
   profilePhoto?: string;
   text: string;
   createdAt: string;
-<<<<<<< HEAD
-};
-=======
-=======
->>>>>>> 6061ee5 (That's some optmisation)
 };
 
 type RoomCreationPayload = {
@@ -159,38 +150,8 @@ type SearchMovieResult = {
   };
 };
 
-const GRID_HALF = 13; // floor roughly spans -13..13
-const PLAYER_Y = 1.6;
-const ZONE_DISTANCE = 4.5;
-const DEFAULT_WEB_MAIN_URL = "http://localhost:5173";
->>>>>>> abc829b (Connecting the workflow)
-
-type RoomCreationPayload = {
-  room: {
-    roomId: string;
-    movieTmdbId: number;
-    aiMode: boolean;
-  };
-  shareLink: string;
-};
-
-type SearchMovieResult = {
-  tmdb_id: number;
-  title: string;
-  overview?: string;
-  images?: {
-    poster?: string | null;
-  };
-  metrics?: {
-    vote_average?: number;
-  };
-};
-
-<<<<<<< HEAD
 const DEFAULT_WEB_MAIN_URL = "http://localhost:5173";
 
-=======
->>>>>>> abc829b (Connecting the workflow)
 function toYouTubeEmbed(urlOrKey: string) {
   if (urlOrKey.startsWith("http")) {
     const u = new URL(urlOrKey);
@@ -333,19 +294,9 @@ function mapMovieToRichDetails(movie: MovieDetails) {
           image: directorEntry.profile_path,
         }
       : null,
-<<<<<<< HEAD
-<<<<<<< HEAD
     genres: (movie.genres || [])
       .map((genre: any) => genre?.name)
       .filter(Boolean),
-=======
-    genres: (movie.genres || []).map((genre: any) => genre?.name).filter(Boolean),
->>>>>>> 6061ee5 (That's some optmisation)
-=======
-    genres: (movie.genres || [])
-      .map((genre: any) => genre?.name)
-      .filter(Boolean),
->>>>>>> 7155281 (Adding some more shitee)
     releaseDate: movie.details?.release_date,
     runtime: movie.details?.runtime,
     rating: movie.metrics?.vote_average,
@@ -666,56 +617,27 @@ function TrailerModal({
           textTransform: "uppercase",
         }}
       >
-<<<<<<< HEAD
-<<<<<<< HEAD
         Sync Time {localTime.toFixed(1)}s{" "}
         {watchparty ? "- Watch Party Sync" : "- Solo"}
-=======
-        Sync Time {localTime.toFixed(1)}s {watchparty ? "- Watch Party Sync" : "- Solo"}
->>>>>>> abc829b (Connecting the workflow)
-=======
-        Sync Time {localTime.toFixed(1)}s{" "}
-        {watchparty ? "- Watch Party Sync" : "- Solo"}
->>>>>>> 7155281 (Adding some more shitee)
       </div>
     </div>
   );
 }
 
 function SyncedTrailerModal({
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 7155281 (Adding some more shitee)
   movieTitle,
   videos,
   selectedVideoKey,
   onSelectVideo,
-<<<<<<< HEAD
-=======
-  videoUrl,
->>>>>>> abc829b (Connecting the workflow)
-=======
->>>>>>> 7155281 (Adding some more shitee)
   onClose,
   playing,
   syncedTime,
   watchparty,
 }: {
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 7155281 (Adding some more shitee)
   movieTitle?: string;
   videos: MovieVideo[];
   selectedVideoKey: string | null;
   onSelectVideo: (key: string) => void;
-<<<<<<< HEAD
-=======
-  videoUrl: string;
->>>>>>> abc829b (Connecting the workflow)
-=======
->>>>>>> 7155281 (Adding some more shitee)
   onClose: () => void;
   playing: boolean;
   syncedTime: number;
@@ -724,17 +646,12 @@ function SyncedTrailerModal({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [localPlaying, setLocalPlaying] = useState(playing);
   const [localTime, setLocalTime] = useState(syncedTime);
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 7155281 (Adding some more shitee)
   const selectedVideo = useMemo(
     () => videos.find((video) => video.key === selectedVideoKey) || null,
     [selectedVideoKey, videos],
   );
   const videoUrl = selectedVideo ? toEmbeddableVideoUrl(selectedVideo) : "";
   const canRemoteControl = selectedVideo?.site === "YouTube";
-<<<<<<< HEAD
 
   useEffect(() => {
     setLocalPlaying(playing);
@@ -747,25 +664,6 @@ function SyncedTrailerModal({
   useEffect(() => {
     if (!videoUrl || !canRemoteControl) return;
 
-=======
-=======
->>>>>>> 7155281 (Adding some more shitee)
-
-  useEffect(() => {
-    setLocalPlaying(playing);
-  }, [playing, selectedVideoKey]);
-
-  useEffect(() => {
-    setLocalTime(syncedTime);
-  }, [syncedTime, selectedVideoKey]);
-
-  useEffect(() => {
-<<<<<<< HEAD
->>>>>>> abc829b (Connecting the workflow)
-=======
-    if (!videoUrl || !canRemoteControl) return;
-
->>>>>>> 7155281 (Adding some more shitee)
     const cw = iframeRef.current?.contentWindow;
     if (!cw) return;
 
@@ -786,39 +684,17 @@ function SyncedTrailerModal({
       }),
       "*",
     );
-<<<<<<< HEAD
-<<<<<<< HEAD
   }, [canRemoteControl, playing, syncedTime, videoUrl]);
 
   useEffect(() => {
     if (!localPlaying || !selectedVideo) return;
-=======
-  }, [playing, syncedTime]);
-
-  useEffect(() => {
-    if (!localPlaying) return;
->>>>>>> abc829b (Connecting the workflow)
-=======
-  }, [canRemoteControl, playing, syncedTime, videoUrl]);
-
-  useEffect(() => {
-    if (!localPlaying || !selectedVideo) return;
->>>>>>> 7155281 (Adding some more shitee)
 
     const interval = window.setInterval(() => {
       setLocalTime((previous) => previous + 0.5);
     }, 500);
 
     return () => window.clearInterval(interval);
-<<<<<<< HEAD
-<<<<<<< HEAD
   }, [localPlaying, selectedVideo]);
-=======
-  }, [localPlaying]);
->>>>>>> abc829b (Connecting the workflow)
-=======
-  }, [localPlaying, selectedVideo]);
->>>>>>> 7155281 (Adding some more shitee)
 
   const emitSyncUpdate = (nextState: { isPlaying: boolean; time: number }) => {
     if (!watchparty) return;
@@ -831,16 +707,8 @@ function SyncedTrailerModal({
   };
 
   const togglePause = () => {
-<<<<<<< HEAD
-<<<<<<< HEAD
     if (!canRemoteControl) return;
 
-=======
->>>>>>> abc829b (Connecting the workflow)
-=======
-    if (!canRemoteControl) return;
-
->>>>>>> 7155281 (Adding some more shitee)
     const cw = iframeRef.current?.contentWindow;
     if (!cw) return;
 
@@ -862,16 +730,8 @@ function SyncedTrailerModal({
   };
 
   const rewindTenSeconds = () => {
-<<<<<<< HEAD
-<<<<<<< HEAD
     if (!canRemoteControl) return;
 
-=======
->>>>>>> abc829b (Connecting the workflow)
-=======
-    if (!canRemoteControl) return;
-
->>>>>>> 7155281 (Adding some more shitee)
     const cw = iframeRef.current?.contentWindow;
     if (!cw) return;
 
@@ -892,10 +752,6 @@ function SyncedTrailerModal({
   };
 
   return (
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 7155281 (Adding some more shitee)
     <div className="absolute inset-0 z-[300] bg-black/95">
       <div className="mx-auto flex h-full w-full max-w-[1920px] flex-col gap-4 px-4 py-4 lg:px-6">
         <div className="flex flex-col gap-4 rounded-[28px] border border-white/10 bg-black/45 px-5 py-4 backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between">
@@ -917,7 +773,6 @@ function SyncedTrailerModal({
                   : "No playable videos are available for this title yet."}
             </div>
           </div>
-<<<<<<< HEAD
 
           <div className="flex flex-wrap gap-3">
             <button
@@ -1053,178 +908,6 @@ function SyncedTrailerModal({
           </div>
         </div>
       </div>
-=======
-    <div
-      style={{
-        position: "absolute",
-        inset: 0,
-        zIndex: 300,
-        background: "rgba(0,0,0,0.95)",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "16px",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          width: "min(98vw, 1920px)",
-        }}
-      >
-        <span
-          style={{
-            color: "#fff",
-            fontSize: "11px",
-            fontWeight: 700,
-            letterSpacing: "0.2em",
-            textTransform: "uppercase",
-            opacity: 0.6,
-          }}
-        >
-          Now Playing - Trailer
-        </span>
-=======
->>>>>>> 7155281 (Adding some more shitee)
-
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={rewindTenSeconds}
-              disabled={!canRemoteControl}
-              className="rounded-full border border-white/20 bg-white/10 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-white disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              -10s
-            </button>
-            <button
-              onClick={togglePause}
-              disabled={!canRemoteControl}
-              className="min-w-[100px] rounded-full border border-white/20 bg-white/10 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-white disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {localPlaying ? "Pause" : "Play"}
-            </button>
-            <button
-              onClick={onClose}
-              className="rounded-full border border-white/20 bg-white/10 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-white"
-            >
-              ESC - Close
-            </button>
-          </div>
-        </div>
-
-        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="flex min-h-0 flex-col gap-4 rounded-[32px] border border-white/10 bg-black/45 p-4 backdrop-blur-xl">
-            <div className="rounded-[28px] border border-white/10 bg-black/70 p-3">
-              {selectedVideo && videoUrl ? (
-                <iframe
-                  key={selectedVideo.key}
-                  ref={iframeRef}
-                  title={selectedVideo.name || selectedVideo.type || "Trailer"}
-                  src={`${videoUrl}${videoUrl.includes("?") ? "&" : "?"}autoplay=1&controls=1&enablejsapi=1`}
-                  allow="autoplay; encrypted-media; fullscreen"
-                  allowFullScreen
-                  className="h-[58vh] w-full rounded-[20px] border-0 xl:h-[68vh]"
-                />
-              ) : (
-                <div className="flex h-[58vh] items-center justify-center rounded-[20px] bg-black/80 px-6 text-center xl:h-[68vh]">
-                  <div>
-                    <div className="text-[10px] font-black uppercase tracking-[0.35em] text-[#f4b63d]">
-                      Video selection
-                    </div>
-                    <div className="mt-4 text-3xl font-black italic text-white">
-                      Choose what to play
-                    </div>
-                    <p className="mt-3 max-w-xl text-sm leading-7 text-white/60">
-                      This room keeps the existing playback controls, but it no
-                      longer guesses the wrong trailer. Pick one of the
-                      available clips from the panel on the right.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-[24px] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm leading-6 text-white/60">
-              Sync time {localTime.toFixed(1)}s{" "}
-              {watchparty ? "• Watch party sync enabled" : "• Solo mode"}
-              {!canRemoteControl && selectedVideo && (
-                <span className="block text-white/45">
-                  Playback controls are optimized for YouTube embeds. This
-                  selection can still be viewed here.
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="flex min-h-0 flex-col rounded-[32px] border border-white/10 bg-black/45 p-4 backdrop-blur-xl">
-            <div className="flex items-end justify-between gap-3">
-              <div>
-                <div className="text-[10px] font-black uppercase tracking-[0.35em] text-[#f4b63d]">
-                  Available Videos
-                </div>
-                <div className="mt-2 text-xl font-black text-white">
-                  Select a clip
-                </div>
-              </div>
-              <div className="rounded-full border border-white/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-white/45">
-                {videos.length}
-              </div>
-            </div>
-
-            <div className="mt-4 flex-1 space-y-3 overflow-y-auto pr-1">
-              {videos.length > 0 ? (
-                videos.map((video, index) => {
-                  const isSelected = video.key === selectedVideoKey;
-                  return (
-                    <button
-                      key={video.key}
-                      type="button"
-                      onClick={() => {
-                        onSelectVideo(video.key);
-                        setLocalTime(0);
-                        setLocalPlaying(true);
-                      }}
-                      className={`w-full rounded-[24px] border p-4 text-left transition-all ${
-                        isSelected
-                          ? "border-[#f4b63d]/60 bg-[#f4b63d]/10 shadow-[0_18px_40px_rgba(244,182,61,0.12)]"
-                          : "border-white/10 bg-white/[0.04] hover:border-white/20"
-                      }`}
-                    >
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-[#f4b63d]">
-                          {video.type || "Video"}
-                        </span>
-                        {video.official && (
-                          <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-white/45">
-                            Official
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-3 text-base font-black leading-6 text-white">
-                        {video.name ||
-                          `${movieTitle || "Movie"} clip ${index + 1}`}
-                      </div>
-                      <div className="mt-2 text-sm leading-6 text-white/50">
-                        {video.site}
-                        {video.published_at
-                          ? ` • ${new Date(video.published_at).getFullYear()}`
-                          : ""}
-                      </div>
-                    </button>
-                  );
-                })
-              ) : (
-                <div className="rounded-[24px] border border-dashed border-white/10 p-5 text-sm leading-7 text-white/55">
-                  No playable videos were returned for this movie.
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
->>>>>>> abc829b (Connecting the workflow)
     </div>
   );
 }
@@ -1289,18 +972,8 @@ function ContextualCommentsOverlay({ onClose }: { onClose: () => void }) {
   return (
     <OverlayShell title="Comments / Chairs" onClose={onClose}>
       <div className="text-muted-foreground leading-relaxed">
-<<<<<<< HEAD
-<<<<<<< HEAD
         Live chat is available inside shared watch party rooms. Create or join a
         synced room to comment with the rest of the audience.
-=======
-        Live chat is available inside shared watch party rooms. Create or join
-        a synced room to comment with the rest of the audience.
->>>>>>> abc829b (Connecting the workflow)
-=======
-        Live chat is available inside shared watch party rooms. Create or join a
-        synced room to comment with the rest of the audience.
->>>>>>> 7155281 (Adding some more shitee)
       </div>
     </OverlayShell>
   );
@@ -1309,783 +982,6 @@ function ContextualCommentsOverlay({ onClose }: { onClose: () => void }) {
 function RoomCommentsOverlay({
   onClose,
   currentUser,
-<<<<<<< HEAD
-=======
-}: {
-  onClose: () => void;
-  currentUser: ViewerUser | null;
-}) {
-  const socket = useSocket();
-  const [messages, setMessages] = useState<any[]>([]);
-  const [input, setInput] = useState("");
-
-  useEffect(() => {
-    if (!socket) return;
-
-    const unsubscribeBootstrap = socket.onRoomBootstrap((data) => {
-      setMessages(data?.chatMessages ?? []);
-    });
-    const unsubscribeMessage = socket.onChatMessage((message) => {
-      setMessages((previous) => [...previous, message]);
-    });
-    const unsubscribeLike = socket.onChatMessageLiked((payload) => {
-      setMessages((previous) =>
-        previous.map((message) =>
-          message.id === payload.messageId
-            ? { ...message, likes: payload.likes }
-            : message,
-        ),
-      );
-    });
-
-    return () => {
-      unsubscribeBootstrap();
-      unsubscribeMessage();
-      unsubscribeLike();
-    };
-  }, [socket]);
-
-  return (
-    <OverlayShell title="Comments / Chairs" onClose={onClose}>
-      <div className="grid gap-4">
-        <div className="max-h-[50vh] overflow-y-auto pr-2 grid gap-3">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className="rounded-3xl border border-border/20 bg-card/30 p-4"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="font-black text-foreground">
-                  {message.senderName}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {new Date(message.createdAt).toLocaleTimeString()}
-                </div>
-              </div>
-              <div className="mt-3 text-muted-foreground leading-relaxed">
-                {message.text}
-              </div>
-              <button
-                onClick={() =>
-                  socket.emit("chat-like", {
-                    messageId: message.id,
-                    senderId: currentUser?._id ?? "guest",
-                  })
-                }
-                className="mt-4 text-sm text-primary"
-              >
-                Like {message.likes || 0}
-              </button>
-            </div>
-          ))}
-
-          {messages.length === 0 && (
-            <div className="rounded-3xl border border-dashed border-border/30 p-6 text-sm text-muted-foreground">
-              No messages yet. Break the silence with the first comment.
-            </div>
-          )}
-        </div>
-
-        <div className="flex gap-3">
-          <input
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            placeholder="Send a room message"
-            className="flex-1 rounded-full border border-border/20 bg-card/20 px-4 py-3 outline-none"
-          />
-          <button
-            onClick={() => {
-              if (!input.trim()) return;
-              socket.emit("chat-send", {
-                text: input.trim(),
-                senderId: currentUser?._id ?? "guest",
-                senderName:
-                  currentUser?.fullName || currentUser?.username || "Guest",
-              });
-              setInput("");
-            }}
-            className="rounded-full bg-primary px-5 py-3 text-[10px] font-black uppercase tracking-[0.3em] text-primary-foreground"
-          >
-            Send
-          </button>
-        </div>
-      </div>
-    </OverlayShell>
-  );
-}
-
-function RoomAIChatOverlay({
-  onClose,
-  mode,
-  movieId,
-}: {
-  onClose: () => void;
-  mode: Mode;
-  movieId: number | null;
-}) {
-  const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<
-    Array<{ role: "user" | "ai"; content: string }>
-  >([
-    {
-      role: "ai",
-      content:
-        mode === "watchparty"
-          ? "Ask me what this room should watch next, or ask about the current movie."
-          : "Ask me about the movie, the cast, or what to watch next.",
-    },
-  ]);
-  const [status, setStatus] = useState("");
-
-  const sendMessage = async () => {
-    if (!input.trim()) return;
-
-    const nextInput = input.trim();
-    setMessages((previous) => [
-      ...previous,
-      {
-        role: "user",
-        content: nextInput,
-      },
-    ]);
-    setInput("");
-    setStatus("Thinking...");
-
-    try {
-      const response = movieId
-        ? await apiPost<ApiResponse<{ role?: string; content?: string }>>(
-            "/ai/context-chat",
-            {
-              movieId,
-              question: nextInput,
-            },
-          )
-        : await apiPost<ApiResponse<{ role?: string; content?: string }>>(
-            "/ai/chat",
-            {
-              message: nextInput,
-            },
-          );
-
-      setMessages((previous) => [
-        ...previous,
-        {
-          role: "ai",
-          content:
-            response.data.content ||
-            response.message ||
-            "The AI room did not return a response.",
-        },
-      ]);
-      setStatus("");
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "AI request failed.");
-    }
-  };
-
-  return (
-    <OverlayShell title="CineBot AI Desk" onClose={onClose}>
-      <div className="grid gap-4">
-        <div className="max-h-[50vh] overflow-y-auto pr-2 grid gap-3">
-          {messages.map((message, index) => (
-            <div
-              key={`${message.role}-${index}`}
-              className={`rounded-3xl border p-4 ${
-                message.role === "ai"
-                  ? "border-primary/20 bg-primary/5"
-                  : "border-border/20 bg-card/20"
-              }`}
-            >
-              <div className="text-[10px] font-black uppercase tracking-[0.35em] text-primary">
-                {message.role === "ai" ? "CineBot" : "You"}
-              </div>
-              <div className="mt-3 text-sm text-muted-foreground leading-relaxed">
-                {message.content}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex gap-3">
-          <input
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            placeholder="Ask about the movie or request a suggestion"
-            className="flex-1 rounded-full border border-border/20 bg-card/20 px-4 py-3 outline-none"
-          />
-          <button
-            onClick={sendMessage}
-            className="rounded-full bg-primary px-5 py-3 text-[10px] font-black uppercase tracking-[0.3em] text-primary-foreground"
-          >
-            Ask
-          </button>
-        </div>
-
-        {status && (
-          <div className="text-sm text-muted-foreground">{status}</div>
-        )}
-      </div>
-    </OverlayShell>
-  );
-}
-
-function VoteDock({
-  roomId,
-  movieId,
-  visible,
-}: {
-  roomId: string;
-  movieId: number | null;
-  visible: boolean;
-}) {
-  const socket = useSocket();
-  const [recommendations, setRecommendations] = useState<any[]>([]);
-  const [votes, setVotes] = useState<any[]>([]);
-
-  useEffect(() => {
-    const loadRecommendations = async () => {
-      try {
-        const response = await apiGet<ApiResponse<any[]>>(
-          `/rooms/${roomId}/recommendations`,
-        );
-        setRecommendations(response.data);
-      } catch {
-        if (!movieId) return;
-        try {
-          const fallback = await apiGet<ApiResponse<any[]>>(
-            `/movies/${movieId}/related`,
-          );
-          setRecommendations(fallback.data);
-        } catch {
-          setRecommendations([]);
-        }
-      }
-    };
-
-    loadRecommendations();
-  }, [movieId, roomId]);
-
-  useEffect(() => {
-    const unsubscribeBootstrap = socket.onRoomBootstrap((data) => {
-      setVotes(data?.voteState ?? []);
-    });
-    const unsubscribeVotes = socket.onVoteState((data) => {
-      setVotes(data ?? []);
-    });
-
-    return () => {
-      unsubscribeBootstrap();
-      unsubscribeVotes();
-    };
-  }, [socket]);
-
-  if (!visible) return null;
-
-  const winningVote = votes[0];
-
-  return (
-    <div className="absolute bottom-6 right-6 z-[245] pointer-events-auto group">
-      <div className="w-[340px] rounded-[var(--radius)] border border-border/20 bg-background/80 p-4 backdrop-blur-2xl opacity-55 transition-opacity duration-300 group-hover:opacity-100">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="text-primary text-[10px] font-black uppercase tracking-[0.35em]">
-              Vote Shelf
-            </div>
-            <div className="mt-2 text-sm text-muted-foreground">
-              Hover to vote on the next shared recommendation.
-            </div>
-          </div>
-          {winningVote && (
-            <div className="rounded-full border border-primary/20 px-3 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-primary">
-              Leading {winningVote.count}
-            </div>
-          )}
-        </div>
-
-        <div className="mt-4 grid gap-3">
-          {recommendations.slice(0, 3).map((recommendation) => {
-            const voteCount =
-              votes.find(
-                (vote) => vote.optionId === String(recommendation.tmdb_id),
-              )?.count || 0;
-
-            return (
-              <div
-                key={recommendation.tmdb_id}
-                className="rounded-2xl border border-border/20 bg-card/20 p-3"
-              >
-                <div className="font-black text-sm text-foreground">
-                  {recommendation.title}
-                </div>
-                <div className="mt-2 text-xs text-muted-foreground line-clamp-2">
-                  {recommendation.overview}
-                </div>
-                <button
-                  onClick={() =>
-                    socket.emit("vote-submit", {
-                      optionId: String(recommendation.tmdb_id),
-                      label: recommendation.title,
-                    })
-                  }
-                  className="mt-3 rounded-full bg-primary px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-primary-foreground"
-                >
-                  Vote {voteCount > 0 ? `(${voteCount})` : ""}
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PersistentMovieCommentsOverlay({
-  movieId,
-  onClose,
-  currentUser,
-}: {
-  movieId: number;
-  onClose: () => void;
-  currentUser: ViewerUser | null;
-}) {
-  const [comments, setComments] = useState<MovieComment[]>([]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [status, setStatus] = useState("");
-
-  useEffect(() => {
-    let mounted = true;
-
-    const loadComments = async () => {
-      setLoading(true);
-      try {
-        const response = await apiGet<ApiResponse<MovieComment[]>>(
-          `/movies/${movieId}/comments`,
-        );
-        if (!mounted) return;
-        setComments(response.data);
-      } catch {
-        if (!mounted) return;
-        setComments([]);
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadComments();
-    return () => {
-      mounted = false;
-    };
-  }, [movieId]);
-
-  const submitComment = async () => {
-    if (!currentUser || !input.trim()) return;
-
-    setSubmitting(true);
-    setStatus("");
-    try {
-      const response = await apiPost<ApiResponse<MovieComment>>(
-        `/movies/${movieId}/comments`,
-        {
-          text: input.trim(),
-        },
-      );
-      setComments((previous) => [response.data, ...previous]);
-      setInput("");
-    } catch (error) {
-      setStatus(
-        error instanceof Error ? error.message : "Unable to save comment.",
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <OverlayShell title="Movie Comments" onClose={onClose}>
-      <PersistentCommentsPanel
-        comments={comments}
-        input={input}
-        onInputChange={setInput}
-        onSubmit={submitComment}
-        submitting={submitting}
-        composerDisabled={!currentUser}
-        currentUser={
-          currentUser
-            ? {
-                username: currentUser.username,
-                fullName: currentUser.fullName,
-                avatar: currentUser.avatar,
-                profilePhoto: currentUser.profilePhoto,
-              }
-            : null
-        }
-        title="Persistent movie discussion"
-        subtitle="These comments are stored with the movie and visible from both the movie page and the room."
-        emptyMessage={
-          loading
-            ? "Loading comments..."
-            : "No comments yet. Start the movie discussion."
-        }
-      />
-      {!currentUser && (
-        <div className="mt-4 text-sm text-amber-200">
-          Sign in through the main app to post movie comments.
-        </div>
-      )}
-      {status && <div className="mt-4 text-sm text-amber-200">{status}</div>}
-    </OverlayShell>
-  );
-}
-
-function RoomAiExperienceOverlay({
-  onClose,
-  movieId,
-  movieTitle,
-  currentUser,
-}: {
-  onClose: () => void;
-  movieId: number | null;
-  movieTitle?: string;
-  currentUser: ViewerUser | null;
-}) {
-  const [selectedMode, setSelectedMode] = useState<AiModeId | null>(null);
-  const [messages, setMessages] = useState<
-    Array<{ role: "user" | "ai"; content: string }>
-  >([
-    {
-      role: "ai",
-      content:
-        "Choose how you want the AI to help before starting the conversation.",
-    },
-  ]);
-  const [input, setInput] = useState("");
-  const [status, setStatus] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const introByMode: Record<AiModeId, string> = {
-    suggest:
-      "Tell me what you liked or disliked and I will suggest one movie that matches that feeling.",
-    context:
-      "Ask a contextual question about the current movie, its cast, plot, or direction.",
-    chat: "Use simple chat for broader movie conversation and lightweight recommendations.",
-  };
-
-  const handleModeSelect = (mode: AiModeId) => {
-    setSelectedMode(mode);
-    setInput("");
-    setStatus("");
-    setMessages([
-      {
-        role: "ai",
-        content: introByMode[mode],
-      },
-    ]);
-  };
-
-  const submitPrompt = async () => {
-    if (!selectedMode || !input.trim()) return;
-    if (!currentUser) {
-      setStatus("Sign in through the main app to use AI features.");
-      return;
-    }
-
-    const prompt = input.trim();
-    setLoading(true);
-    setStatus("");
-    setInput("");
-    setMessages((previous) => [
-      ...previous,
-      {
-        role: "user",
-        content: prompt,
-      },
-    ]);
-
-    try {
-      let nextContent = "The AI room did not return a response.";
-
-      if (selectedMode === "suggest") {
-        if (!movieId) {
-          nextContent = "This mode needs a movie context first.";
-        } else {
-          const response = await apiPost<
-            ApiResponse<{ movieTitle?: string; reason?: string }>
-          >("/ai/suggest", {
-            movieId,
-            feedback: prompt,
-          });
-          nextContent = response.data.movieTitle
-            ? `${response.data.movieTitle}\n\n${response.data.reason || ""}`.trim()
-            : response.message;
-        }
-      } else if (selectedMode === "context") {
-        if (!movieId) {
-          nextContent = "This mode needs a movie context first.";
-        } else {
-          const response = await apiPost<ApiResponse<{ content?: string }>>(
-            "/ai/context-chat",
-            {
-              movieId,
-              question: prompt,
-            },
-          );
-          nextContent = response.data.content || response.message;
-        }
-      } else {
-        const response = await apiPost<ApiResponse<{ content?: string }>>(
-          "/ai/chat",
-          {
-            message: prompt,
-          },
-        );
-        nextContent = response.data.content || response.message;
-      }
-
-      setMessages((previous) => [
-        ...previous,
-        {
-          role: "ai",
-          content: nextContent,
-        },
-      ]);
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "AI request failed.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="absolute inset-0 z-[240] flex items-center justify-center bg-black/80 p-5">
-      <div className="h-[86vh] w-[90vw] max-w-[1500px] overflow-hidden rounded-[36px] border border-white/10 bg-accent-foreground shadow-2xl">
-        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
-          <div>
-            <div className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">
-              Room AI
-            </div>
-            <div className="mt-2 text-xl font-black italic text-white">
-              {movieTitle ? `${movieTitle} AI Desk` : "AI Desk"}
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-full border border-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-white/75"
-          >
-            Close
-          </button>
-        </div>
-
-        <div className="h-[calc(86vh-81px)] overflow-y-auto p-6">
-          <AiModePanel
-            title="Choose how the AI should help"
-            subtitle="The same three-mode AI flow is embedded directly inside the room, so nobody has to leave the theatre."
-            selectedMode={selectedMode}
-            onSelectMode={handleModeSelect}
-            messages={messages}
-            input={input}
-            onInputChange={setInput}
-            onSubmit={submitPrompt}
-            loading={loading}
-            status={status}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RichMovieInfoOverlay({
-  movieId,
-  onClose,
-}: {
-  movieId: number;
-  onClose: () => void;
-}) {
-  const { movie, status } = useMovieDetails(movieId);
-
-  if (status === "loading") {
-    return (
-      <OverlayShell title="Movie Info" onClose={onClose}>
-        <div className="text-white/80">Loading rich movie details...</div>
-      </OverlayShell>
-    );
-  }
-
-  if (status === "error" || !movie) {
-    return (
-      <OverlayShell title="Movie Info" onClose={onClose}>
-        <div className="text-red-300/90 font-bold">
-          Movie metadata could not be loaded.
-        </div>
-      </OverlayShell>
-    );
-  }
-
-  const details = mapMovieToRichDetails(movie);
-
-  return (
-    <div className="absolute inset-0 z-[220] flex items-center justify-center bg-black/70 p-6">
-      <div className="w-full max-w-4xl max-h-[90vh] rounded-[var(--radius)] bg-accent-foreground border border-border/20 p-5 shadow-2xl overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between mb-4">
-          <div className="font-black uppercase tracking-widest text-primary text-sm">
-            Movie Info
-          </div>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-full bg-card border border-border/20 hover:border-primary/40"
-          >
-            Close
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          <MovieRichDetails
-            title={movie.title}
-            overview={movie.overview}
-            genres={details.genres}
-            releaseDate={details.releaseDate}
-            runtime={details.runtime}
-            rating={details.rating}
-            director={details.director}
-            actors={details.actors}
-            poster={movie.images?.poster}
-            compact
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RoomChatDrawer({
-  visible,
-  currentUser,
-}: {
-  visible: boolean;
-  currentUser: ViewerUser | null;
-}) {
-  const socket = useSocket();
-  const [messages, setMessages] = useState<any[]>([]);
-  const [input, setInput] = useState("");
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    const unsubscribeBootstrap = socket.onRoomBootstrap((data) => {
-      setMessages(data?.chatMessages ?? []);
-    });
-    const unsubscribeMessage = socket.onChatMessage((message) => {
-      setMessages((previous) => [...previous, message]);
-    });
-
-    return () => {
-      unsubscribeBootstrap();
-      unsubscribeMessage();
-    };
-  }, [socket]);
-
-  if (!visible) return null;
-
-  return (
-    <div className="absolute bottom-6 right-6 z-[245] pointer-events-auto">
-      <div
-        className={`flex transition-transform duration-300 ${
-          open ? "translate-x-0" : "translate-x-[372px]"
-        }`}
-      >
-        <button
-          onClick={() => setOpen((previous) => !previous)}
-          className="mr-3 self-end rounded-full border border-border/20 bg-primary/80 px-4 py-3 text-[10px] font-black uppercase tracking-[0.3em] text-white backdrop-blur-xl"
-        >
-          {open ? "Hide Chat" : "User Chat"}
-        </button>
-
-        <div className="w-[340px] rounded-[32px] border border-white/10 bg-card-foreground p-4 shadow-2xl backdrop-blur-2xl">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-primary text-[10px] font-black uppercase tracking-[0.35em]">
-                User Chat
-              </div>
-              <div className="mt-2 text-sm text-white/60">
-                Real-time room conversation for people inside this watch party.
-              </div>
-            </div>
-            <div className="rounded-full border border-white/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-white/45">
-              Live
-            </div>
-          </div>
-
-          <div className="mt-4 max-h-[360px] space-y-3 overflow-y-auto pr-1">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="font-black text-white">
-                    {message.senderName}
-                  </div>
-                  <div className="text-xs text-white/35">
-                    {new Date(message.createdAt).toLocaleTimeString()}
-                  </div>
-                </div>
-                <div className="mt-2 text-sm leading-6 text-white/65">
-                  {message.text}
-                </div>
-              </div>
-            ))}
-
-            {messages.length === 0 && (
-              <div className="rounded-[24px] border border-dashed border-white/10 p-5 text-sm text-white/50">
-                Nobody has said anything in the room yet.
-              </div>
-            )}
-          </div>
-
-          <div className="mt-4 flex gap-3">
-            <input
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              placeholder={
-                currentUser
-                  ? "Send a live room message"
-                  : "Sign in through the main app to chat"
-              }
-              disabled={!currentUser}
-              className="flex-1 rounded-full border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-white/35 disabled:opacity-50"
-            />
-            <button
-              onClick={() => {
-                if (!input.trim()) return;
-                socket.emit("chat-send", {
-                  text: input.trim(),
-                  senderId: currentUser?._id ?? "guest",
-                  senderName:
-                    currentUser?.fullName || currentUser?.username || "Guest",
-                });
-                setInput("");
-              }}
-              disabled={!currentUser || !input.trim()}
-              className="rounded-full bg-primary px-4 py-3 text-[10px] font-black uppercase tracking-[0.3em] text-primary-foreground disabled:opacity-50"
-            >
-              Send
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function GuestBox({
-  x,
-  y,
-  z,
-  yaw,
->>>>>>> abc829b (Connecting the workflow)
 }: {
   onClose: () => void;
   currentUser: ViewerUser | null;
@@ -3901,10 +2797,6 @@ function PersistentCreateRoomOverlay({
     setCreating(true);
     setErrorText(null);
     try {
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 7155281 (Adding some more shitee)
       const response = await apiPost<ApiResponse<RoomCreationPayload>>(
         "/rooms",
         {
@@ -3918,21 +2810,6 @@ function PersistentCreateRoomOverlay({
           allowVoting: true,
         },
       );
-<<<<<<< HEAD
-=======
-      const response = await apiPost<ApiResponse<RoomCreationPayload>>("/rooms", {
-        movieId: selectedMovie.tmdb_id,
-        label: roomLabel.trim() || `${selectedMovie.title} Watch Party`,
-        aiMode,
-        visibility,
-        maxParticipants,
-        allowChat: true,
-        allowVoice: true,
-        allowVoting: true,
-      });
->>>>>>> abc829b (Connecting the workflow)
-=======
->>>>>>> 7155281 (Adding some more shitee)
 
       setCreatedRoom(response.data);
     } catch (error) {
@@ -3944,16 +2821,7 @@ function PersistentCreateRoomOverlay({
     }
   }, [aiMode, maxParticipants, roomLabel, selectedMovie, visibility]);
 
-<<<<<<< HEAD
-<<<<<<< HEAD
   const webMainUrl = import.meta.env.VITE_WEB_MAIN_URL || DEFAULT_WEB_MAIN_URL;
-=======
-  const webMainUrl =
-    import.meta.env.VITE_WEB_MAIN_URL || DEFAULT_WEB_MAIN_URL;
->>>>>>> abc829b (Connecting the workflow)
-=======
-  const webMainUrl = import.meta.env.VITE_WEB_MAIN_URL || DEFAULT_WEB_MAIN_URL;
->>>>>>> 7155281 (Adding some more shitee)
 
   return (
     <div className="absolute inset-0 z-[210] flex items-center justify-center bg-black/70 p-6">
@@ -4058,27 +2926,12 @@ function PersistentCreateRoomOverlay({
                 {selectedMovie ? (
                   <div className="mt-5 space-y-4">
                     <div>
-<<<<<<< HEAD
-<<<<<<< HEAD
                       <div className="font-black text-lg">
                         {selectedMovie.title}
                       </div>
                       <div className="mt-1 text-sm text-muted-foreground">
                         TMDB score{" "}
                         {selectedMovie.metrics?.vote_average ?? "N/A"}
-=======
-                      <div className="font-black text-lg">{selectedMovie.title}</div>
-                      <div className="mt-1 text-sm text-muted-foreground">
-                        TMDB score {selectedMovie.metrics?.vote_average ?? "N/A"}
->>>>>>> abc829b (Connecting the workflow)
-=======
-                      <div className="font-black text-lg">
-                        {selectedMovie.title}
-                      </div>
-                      <div className="mt-1 text-sm text-muted-foreground">
-                        TMDB score{" "}
-                        {selectedMovie.metrics?.vote_average ?? "N/A"}
->>>>>>> 7155281 (Adding some more shitee)
                       </div>
                     </div>
                     <input
@@ -4090,19 +2943,9 @@ function PersistentCreateRoomOverlay({
                     <select
                       value={visibility}
                       onChange={(event) =>
-<<<<<<< HEAD
-<<<<<<< HEAD
                         setVisibility(
                           event.target.value as "private" | "public",
                         )
-=======
-                        setVisibility(event.target.value as "private" | "public")
->>>>>>> abc829b (Connecting the workflow)
-=======
-                        setVisibility(
-                          event.target.value as "private" | "public",
-                        )
->>>>>>> 7155281 (Adding some more shitee)
                       }
                       className="w-full rounded-xl border border-border/20 bg-background/30 px-4 py-3 outline-none"
                     >
@@ -4158,19 +3001,9 @@ function PersistentCreateRoomOverlay({
             </div>
             <div className="mt-6 flex flex-wrap gap-3">
               <button
-<<<<<<< HEAD
-<<<<<<< HEAD
                 onClick={() =>
                   navigator.clipboard.writeText(createdRoom.shareLink)
                 }
-=======
-                onClick={() => navigator.clipboard.writeText(createdRoom.shareLink)}
->>>>>>> abc829b (Connecting the workflow)
-=======
-                onClick={() =>
-                  navigator.clipboard.writeText(createdRoom.shareLink)
-                }
->>>>>>> 7155281 (Adding some more shitee)
                 className="rounded-full border border-border/20 px-5 py-3 text-[10px] font-black uppercase tracking-[0.3em]"
               >
                 Copy Link
@@ -4216,27 +3049,11 @@ function GuidedEnterOverlay({
         opacity: locked ? 0 : 1,
         transition: "opacity 0.3s ease",
       }}
-<<<<<<< HEAD
-<<<<<<< HEAD
       className="absolute top-4 left-1/2 -translate-x-1/2 z-[250] flex items-center gap-2 px-5 py-2.5 rounded-full bg-amber-600/40 border border-amber-400/30 backdrop-blur-sm shadow-lg cursor-pointer select-none"
       onClick={() => !locked && controlsApiRef.current?.lock?.()}
     >
       <span className="text-amber-50 text-sm font-bold tracking-wide">
         🖱 Click to walk — WASD to move
-=======
-      className="absolute top-4 left-1/2 -translate-x-1/2 z-[250] flex items-center gap-2 px-5 py-2.5 rounded-full bg-red-600/90 border border-red-400/60 backdrop-blur-sm shadow-lg cursor-pointer select-none"
-      onClick={() => !locked && controlsApiRef.current?.lock?.()}
-    >
-      <span className="text-white text-sm font-bold tracking-wide">
-        Click to walk - WASD to move
->>>>>>> abc829b (Connecting the workflow)
-=======
-      className="absolute top-4 left-1/2 -translate-x-1/2 z-[250] flex items-center gap-2 px-5 py-2.5 rounded-full bg-amber-600/40 border border-amber-400/30 backdrop-blur-sm shadow-lg cursor-pointer select-none"
-      onClick={() => !locked && controlsApiRef.current?.lock?.()}
-    >
-      <span className="text-amber-50 text-sm font-bold tracking-wide">
-        🖱 Click to walk — WASD to move
->>>>>>> 7155281 (Adding some more shitee)
       </span>
     </div>
   );
@@ -4274,23 +3091,13 @@ function EnterOverlay({
 
 const legacySpaceComponents = [
   TrailerModal,
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 6061ee5 (That's some optmisation)
   MovieInfoOverlay,
   CommentsOverlay,
   ContextualCommentsOverlay,
   RoomCommentsOverlay,
   RoomAIChatOverlay,
   VoteDock,
-<<<<<<< HEAD
   WorldFPS,
-=======
-  CommentsOverlay,
->>>>>>> abc829b (Connecting the workflow)
-=======
->>>>>>> 6061ee5 (That's some optmisation)
   CreateRoomOverlay,
   EnterOverlay,
 ];
@@ -4371,10 +3178,7 @@ export const Space = () => {
   const [trailerPlaying, setTrailerPlaying] = useState(true);
   const [trailerTime, setTrailerTime] = useState(0);
   const [selectedVideoKey, setSelectedVideoKey] = useState<string | null>(null);
-<<<<<<< HEAD
   const [cachedAvatarId, setCachedAvatarId] = useState<string | null>(null);
-=======
->>>>>>> 7155281 (Adding some more shitee)
 
   useEffect(() => {
     setSelectedVideoKey(movie?.video?.key ?? null);
@@ -4407,7 +3211,6 @@ export const Space = () => {
   const overlayOpen = Boolean(activeOverlay);
 
   useEffect(() => {
-<<<<<<< HEAD
     const storedAvatar = window.localStorage.getItem("metaverse-room-avatar");
     if (storedAvatar) {
       setCachedAvatarId(storedAvatar);
@@ -4424,29 +3227,15 @@ export const Space = () => {
           setCachedAvatarId(response.data.user.avatar);
         }
       })
-=======
-    apiGet<ApiResponse<{ user: ViewerUser }>>("/users/me")
-      .then((response) => setViewer(response.data.user))
->>>>>>> abc829b (Connecting the workflow)
       .catch(() => setViewer(null));
   }, []);
 
   useEffect(() => {
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 7155281 (Adding some more shitee)
     if (
       !aiRoomMode ||
       mode !== "watchparty" ||
       initializedAiOverlayRef.current
     ) {
-<<<<<<< HEAD
-=======
-    if (!aiRoomMode || mode !== "watchparty" || initializedAiOverlayRef.current) {
->>>>>>> abc829b (Connecting the workflow)
-=======
->>>>>>> 7155281 (Adding some more shitee)
       return;
     }
 
@@ -4517,20 +3306,6 @@ export const Space = () => {
         playerRef={playerRef}
         nearZoneRef={nearZoneRef}
         onNearZoneChange={setNearZone}
-<<<<<<< HEAD
-=======
-        videoUrl={
-          selectedVideoKey
-            ? toEmbeddableVideoUrl(
-                availableVideos.find(
-                  (video) => video.key === selectedVideoKey,
-                ) || null,
-              )
-            : undefined
-        }
-        isPlaying={trailerPlaying}
-        trailerTime={trailerTime}
->>>>>>> 7155281 (Adding some more shitee)
         tvOverlayRef={tvOverlayRef}
         guests={mode === "watchparty" ? guests : []}
       />
@@ -4568,8 +3343,6 @@ export const Space = () => {
             onSyncTrailer={handleSyncTrailer}
             onSyncModal={handleSyncModal}
           />
-<<<<<<< HEAD
-<<<<<<< HEAD
           <RoomChatDrawer
             visible={activeOverlay === null}
             currentUser={viewer}
@@ -4577,35 +3350,11 @@ export const Space = () => {
         </>
       )}
       {activeOverlay === "trailer" && (
-<<<<<<< HEAD
         <SyncedTrailerModal
           movieTitle={movie?.title}
           videos={availableVideos}
           selectedVideoKey={selectedVideoKey}
           onSelectVideo={setSelectedVideoKey}
-=======
-          <VoteDock
-            roomId={roomId}
-            movieId={movieId}
-=======
-          <RoomChatDrawer
->>>>>>> 6061ee5 (That's some optmisation)
-            visible={activeOverlay === null}
-            currentUser={viewer}
-          />
-        </>
-      )}
-      {activeOverlay === "trailer" && videoUrl && (
-        <SyncedTrailerModal
-          videoUrl={videoUrl}
->>>>>>> abc829b (Connecting the workflow)
-=======
-        <SyncedTrailerModal
-          movieTitle={movie?.title}
-          videos={availableVideos}
-          selectedVideoKey={selectedVideoKey}
-          onSelectVideo={setSelectedVideoKey}
->>>>>>> 7155281 (Adding some more shitee)
           onClose={onCloseOverlay}
           playing={trailerPlaying}
           syncedTime={trailerTime}
@@ -4618,8 +3367,6 @@ export const Space = () => {
       {movieId && activeOverlay === "info" && (
         <RichMovieInfoOverlay movieId={movieId} onClose={onCloseOverlay} />
       )}
-<<<<<<< HEAD
-<<<<<<< HEAD
       {movieId && activeOverlay === "comments" && (
         <PersistentMovieCommentsOverlay
           movieId={movieId}
@@ -4632,27 +3379,6 @@ export const Space = () => {
           movieId={movieId}
           movieTitle={movie?.title}
           currentUser={viewer}
-=======
-      {activeOverlay === "comments" && mode === "watchparty" && (
-        <RoomCommentsOverlay
-=======
-      {movieId && activeOverlay === "comments" && (
-        <PersistentMovieCommentsOverlay
-          movieId={movieId}
->>>>>>> 6061ee5 (That's some optmisation)
-          onClose={onCloseOverlay}
-          currentUser={viewer}
-        />
-      )}
-      {activeOverlay === "ai" && (
-        <RoomAiExperienceOverlay
-          movieId={movieId}
-<<<<<<< HEAD
->>>>>>> abc829b (Connecting the workflow)
-=======
-          movieTitle={movie?.title}
-          currentUser={viewer}
->>>>>>> 6061ee5 (That's some optmisation)
           onClose={onCloseOverlay}
         />
       )}
