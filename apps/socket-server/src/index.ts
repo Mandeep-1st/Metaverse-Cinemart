@@ -522,7 +522,7 @@ const handleAvatarSync = (DATA: any, socketId: string) => {
     const peerRoom = rooms.get(roomId);
     if (!peerRoom) return;
 
-    const { x, y, z, rY } = DATA?.data ?? {};
+    const { x, y, z, rY, avatarId } = DATA?.data ?? {};
 
     // Broadcast to all other peers; sender already knows their own position.
     peerRoom.peers.forEach((eachPeer, eachPeerId) => {
@@ -536,6 +536,7 @@ const handleAvatarSync = (DATA: any, socketId: string) => {
                     y,
                     z,
                     rY,
+                    avatarId,
                 }
             }));
         }

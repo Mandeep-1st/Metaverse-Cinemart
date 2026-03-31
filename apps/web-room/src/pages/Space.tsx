@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { PointerLockControls } from "@react-three/drei";
 import { TheatreRoom } from "../components/TheatreRoom";
@@ -30,6 +30,16 @@ import type {
 } from "mediasoup-client/types";
 import * as mediasoupClient from "mediasoup-client";
 import { useSearchParams } from "react-router-dom";
+import { CinemaScene } from "../space/Scene";
+import {
+  GRID_HALF,
+  PLAYER_Y,
+  ZONE_DISTANCE,
+  clamp,
+  isInsideAnyCollider,
+  isTypingElement,
+} from "../space/constants";
+import type { GuestPresence } from "../space/types";
 
 type ApiResponse<T> = {
   statusCode: number;
@@ -41,19 +51,6 @@ type ApiResponse<T> = {
 // ─── Add this constant OUTSIDE the component (top of file) ───
 // Each zone is a rectangle the player cannot enter.
 // Values are XZ bounds in world space. Tune the inset (10.5) if needed.
-const COLLISION_RECTS = [
-  { label: "north-tv", minX: -13, maxX: 13, minZ: -13, maxZ: -10.5 },
-  { label: "south-door", minX: -2.5, maxX: 2.5, minZ: 10.5, maxZ: 13 },
-  { label: "west-chairs", minX: -13, maxX: -10.5, minZ: -4, maxZ: 4 },
-  { label: "east-cupbds", minX: 10.5, maxX: 13, minZ: -4, maxZ: 4 },
-];
-
-function isInsideAnyCollider(x: number, z: number) {
-  return COLLISION_RECTS.some(
-    (r) => x > r.minX && x < r.maxX && z > r.minZ && z < r.maxZ,
-  );
-}
-
 type MovieDetails = {
   tmdb_id: number;
   title: string;
@@ -153,25 +150,7 @@ type SearchMovieResult = {
   };
 };
 
-const GRID_HALF = 13; // floor roughly spans -13..13
-const PLAYER_Y = 1.6;
-const ZONE_DISTANCE = 4.5;
 const DEFAULT_WEB_MAIN_URL = "http://localhost:5173";
-
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n));
-}
-
-function isTypingElement(target: EventTarget | null) {
-  if (!target || !(target instanceof HTMLElement)) return false;
-  const tag = target.tagName.toLowerCase();
-  return (
-    tag === "input" ||
-    tag === "textarea" ||
-    tag === "select" ||
-    target.isContentEditable
-  );
-}
 
 function toYouTubeEmbed(urlOrKey: string) {
   if (urlOrKey.startsWith("http")) {
@@ -1772,101 +1751,11 @@ function RoomChatDrawer({
   );
 }
 
-function GuestBox({
-  x,
-  y,
-  z,
-  yaw,
-}: {
-  x: number;
-  y: number;
-  z: number;
-  yaw: number;
-}) {
-  const bobbingRef = useRef<THREE.Group>(null);
-
-  useFrame(({ clock }) => {
-    if (!bobbingRef.current) return;
-    bobbingRef.current.position.y =
-      Math.sin(clock.getElapsedTime() * 1.8) * 0.04;
-  });
-
-  return (
-    <group position={[x, y, z]} rotation={[0, yaw, 0]}>
-      <group ref={bobbingRef}>
-        {/* Legs */}
-        {[-0.15, 0.15].map((lx, i) => (
-          <mesh key={i} position={[lx, -0.65, 0]} castShadow>
-            <capsuleGeometry args={[0.07, 0.4, 6, 8]} />
-            <meshStandardMaterial color="#222" roughness={0.8} />
-          </mesh>
-        ))}
-        {/* Body */}
-        <mesh position={[0, -0.1, 0]} castShadow>
-          <capsuleGeometry args={[0.22, 0.55, 8, 12]} />
-          <meshStandardMaterial
-            color="#cc2222"
-            roughness={0.6}
-            metalness={0.1}
-          />
-        </mesh>
-        {/* Collar */}
-        <mesh position={[0, 0.28, 0]}>
-          <cylinderGeometry args={[0.14, 0.18, 0.1, 12]} />
-          <meshStandardMaterial color="#111" roughness={0.6} />
-        </mesh>
-        {/* Neck */}
-        <mesh position={[0, 0.42, 0]} castShadow>
-          <cylinderGeometry args={[0.09, 0.11, 0.18, 10]} />
-          <meshStandardMaterial color="#F5CBA7" roughness={0.5} />
-        </mesh>
-        {/* Head */}
-        <mesh position={[0, 0.64, 0]} castShadow>
-          <sphereGeometry args={[0.2, 16, 16]} />
-          <meshStandardMaterial color="#F5CBA7" roughness={0.5} />
-        </mesh>
-        {/* Hair */}
-        <mesh position={[0, 0.76, 0]}>
-          <sphereGeometry args={[0.205, 16, 10]} />
-          <meshStandardMaterial color="#2C1A0E" roughness={0.9} />
-        </mesh>
-        {/* Eyes */}
-        <mesh position={[-0.075, 0.66, 0.17]}>
-          <sphereGeometry args={[0.032, 8, 8]} />
-          <meshStandardMaterial color="#111" roughness={0.3} />
-        </mesh>
-        <mesh position={[0.075, 0.66, 0.17]}>
-          <sphereGeometry args={[0.032, 8, 8]} />
-          <meshStandardMaterial color="#111" roughness={0.3} />
-        </mesh>
-        {/* Name tag glow */}
-        <mesh position={[0, -0.08, 0.24]}>
-          <boxGeometry args={[0.28, 0.12, 0.02]} />
-          <meshStandardMaterial
-            color="#fff"
-            emissive="#4444ff"
-            emissiveIntensity={1.5}
-            toneMapped={false}
-          />
-        </mesh>
-        {/* Arms */}
-        <mesh position={[-0.32, -0.05, 0]} rotation={[0, 0, 0.4]} castShadow>
-          <capsuleGeometry args={[0.065, 0.38, 6, 8]} />
-          <meshStandardMaterial color="#cc2222" roughness={0.6} />
-        </mesh>
-        <mesh position={[0.32, -0.05, 0]} rotation={[0, 0, -0.4]} castShadow>
-          <capsuleGeometry args={[0.065, 0.38, 6, 8]} />
-          <meshStandardMaterial color="#cc2222" roughness={0.6} />
-        </mesh>
-      </group>
-    </group>
-  );
-}
-
 function WatchPartyAvatars({
   roomId,
   playerRef,
   setGuests,
+  avatarId,
 }: {
   roomId: string;
   playerRef: React.MutableRefObject<{
@@ -1875,11 +1764,8 @@ function WatchPartyAvatars({
     z: number;
     yaw: number;
   }>;
-  setGuests: React.Dispatch<
-    React.SetStateAction<
-      Array<{ peerId: string; x: number; y: number; z: number; yaw: number }>
-    >
-  >;
+  setGuests: React.Dispatch<React.SetStateAction<GuestPresence[]>>;
+  avatarId?: string | null;
 }) {
   const socket = useSocket();
   const emittingRef = useRef(false);
@@ -1892,9 +1778,11 @@ function WatchPartyAvatars({
       const z = Number(data.z);
       const y = Number(data.y ?? PLAYER_Y);
       const yaw = Number(data.rY ?? data.yaw ?? 0);
+      const nextAvatarId =
+        typeof data.avatarId === "string" ? data.avatarId : null;
       setGuests((prev) => {
         const filtered = prev.filter((p) => p.peerId !== peerId);
-        return [...filtered, { peerId, x, y, z, yaw }];
+        return [...filtered, { peerId, x, y, z, yaw, avatarId: nextAvatarId }];
       });
     });
     return () => unsub();
@@ -1917,14 +1805,14 @@ function WatchPartyAvatars({
 
     const interval = window.setInterval(() => {
       const { x, y, z, yaw } = playerRef.current;
-      socket.emit("avatar-sync", { roomId, x, y, z, rY: yaw });
+      socket.emit("avatar-sync", { roomId, x, y, z, rY: yaw, avatarId });
     }, 100);
 
     return () => {
       window.clearInterval(interval);
       emittingRef.current = false;
     };
-  }, [roomId, playerRef, socket]);
+  }, [avatarId, roomId, playerRef, socket]);
 
   return null;
 }
@@ -3209,6 +3097,7 @@ const legacySpaceComponents = [
   RoomCommentsOverlay,
   RoomAIChatOverlay,
   VoteDock,
+  WorldFPS,
   CreateRoomOverlay,
   EnterOverlay,
 ];
@@ -3289,6 +3178,7 @@ export const Space = () => {
   const [trailerPlaying, setTrailerPlaying] = useState(true);
   const [trailerTime, setTrailerTime] = useState(0);
   const [selectedVideoKey, setSelectedVideoKey] = useState<string | null>(null);
+  const [cachedAvatarId, setCachedAvatarId] = useState<string | null>(null);
 
   useEffect(() => {
     setSelectedVideoKey(movie?.video?.key ?? null);
@@ -3311,9 +3201,7 @@ export const Space = () => {
   const playerRef = useRef({ x: 0, y: PLAYER_Y, z: 0, yaw: 0 });
   const nearZoneRef = useRef<ZoneId | null>(null);
 
-  const [guests, setGuests] = useState<
-    Array<{ peerId: string; x: number; y: number; z: number; yaw: number }>
-  >([]);
+  const [guests, setGuests] = useState<GuestPresence[]>([]);
 
   const [nearZone, setNearZone] = useState<ZoneId | null>(null);
   const [viewer, setViewer] = useState<ViewerUser | null>(null);
@@ -3323,8 +3211,22 @@ export const Space = () => {
   const overlayOpen = Boolean(activeOverlay);
 
   useEffect(() => {
+    const storedAvatar = window.localStorage.getItem("metaverse-room-avatar");
+    if (storedAvatar) {
+      setCachedAvatarId(storedAvatar);
+    }
+
     apiGet<ApiResponse<{ user: ViewerUser }>>("/users/me")
-      .then((response) => setViewer(response.data.user))
+      .then((response) => {
+        setViewer(response.data.user);
+        if (response.data.user.avatar) {
+          window.localStorage.setItem(
+            "metaverse-room-avatar",
+            response.data.user.avatar,
+          );
+          setCachedAvatarId(response.data.user.avatar);
+        }
+      })
       .catch(() => setViewer(null));
   }, []);
 
@@ -3394,12 +3296,8 @@ export const Space = () => {
   );
 
   const world = (
-    <Canvas
-      shadows
-      camera={{ position: [0, PLAYER_Y, 5], fov: 70 }}
-      style={{ width: "100%", height: "100%" }}
-    >
-      <WorldFPS
+    <>
+      <CinemaScene
         movementEnabled={movementEnabled}
         overlayOpen={overlayOpen}
         onZoneKey={onZoneKey}
@@ -3408,35 +3306,19 @@ export const Space = () => {
         playerRef={playerRef}
         nearZoneRef={nearZoneRef}
         onNearZoneChange={setNearZone}
-        videoUrl={
-          selectedVideoKey
-            ? toEmbeddableVideoUrl(
-                availableVideos.find(
-                  (video) => video.key === selectedVideoKey,
-                ) || null,
-              )
-            : undefined
-        }
-        isPlaying={trailerPlaying}
-        trailerTime={trailerTime}
         tvOverlayRef={tvOverlayRef}
+        guests={mode === "watchparty" ? guests : []}
       />
 
-      {/* Guests (multiplayer only) */}
-      {mode === "watchparty" &&
-        guests.map((g) => (
-          <GuestBox key={g.peerId} x={g.x} y={g.y} z={g.z} yaw={g.yaw} />
-        ))}
-
-      {/* (placeholder) Broadcast + receive avatar state */}
       {mode === "watchparty" && roomId && (
         <WatchPartyAvatars
           roomId={roomId}
           playerRef={playerRef}
           setGuests={setGuests}
+          avatarId={viewer?.avatar || cachedAvatarId}
         />
       )}
-    </Canvas>
+    </>
   );
 
   // Create-room UX: show dialog before entering the room (no Canvas/pointer lock yet).
