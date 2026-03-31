@@ -122,13 +122,21 @@ export function MovieRichDetails({
             </div>
             <h2
               className={cn(
+<<<<<<< HEAD
                 "mt-3 break-words text-balance font-black italic tracking-tight text-white leading-[0.94]",
+=======
+                "mt-3 font-black italic tracking-tight text-white",
+>>>>>>> 6061ee5 (That's some optmisation)
                 compact ? "text-3xl" : "text-4xl md:text-5xl",
               )}
             >
               {title}
             </h2>
+<<<<<<< HEAD
             <p className="mt-4 max-w-4xl whitespace-pre-wrap break-words text-sm leading-7 text-white/70 md:text-base">
+=======
+            <p className="mt-4 max-w-4xl text-sm leading-7 text-white/70 md:text-base">
+>>>>>>> 6061ee5 (That's some optmisation)
               {overview || "No overview available for this title yet."}
             </p>
           </div>
@@ -170,9 +178,13 @@ export function MovieRichDetails({
               size={compact ? "lg" : "xl"}
             />
             <div>
+<<<<<<< HEAD
               <div className="break-words text-2xl font-black text-white">
                 {director.name}
               </div>
+=======
+              <div className="text-2xl font-black text-white">{director.name}</div>
+>>>>>>> 6061ee5 (That's some optmisation)
               {director.subtitle && (
                 <div className="mt-1 text-sm text-white/60">{director.subtitle}</div>
               )}
@@ -191,10 +203,15 @@ export function MovieRichDetails({
               Top {topActors.length || 0} actors
             </div>
           </div>
+<<<<<<< HEAD
           <div className="text-sm leading-6 text-white/45">
             {genres.length
               ? genres.join(" • ")
               : "Cast details from movie metadata"}
+=======
+          <div className="text-sm text-white/45">
+            {genres.length ? genres.join(" • ") : "Cast details from movie metadata"}
+>>>>>>> 6061ee5 (That's some optmisation)
           </div>
         </div>
 
@@ -216,9 +233,13 @@ export function MovieRichDetails({
                 className="mx-auto"
               />
               <div className="mt-4 text-center">
+<<<<<<< HEAD
                 <div className="break-words text-base font-black text-white">
                   {actor.name}
                 </div>
+=======
+                <div className="text-base font-black text-white">{actor.name}</div>
+>>>>>>> 6061ee5 (That's some optmisation)
                 <div className="mt-1 text-sm text-white/55">
                   {actor.subtitle || "Cast"}
                 </div>

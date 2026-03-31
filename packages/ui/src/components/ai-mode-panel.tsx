@@ -91,7 +91,11 @@ export function AiModePanel({
           <h2 className="mt-3 text-3xl font-black italic tracking-tight md:text-5xl">
             {title}
           </h2>
+<<<<<<< HEAD
           <p className="mt-3 max-w-3xl whitespace-pre-wrap break-words text-sm leading-7 text-white/60 md:text-base">
+=======
+          <p className="mt-3 max-w-3xl text-sm leading-7 text-white/60 md:text-base">
+>>>>>>> 6061ee5 (That's some optmisation)
             {subtitle}
           </p>
         </div>
@@ -123,6 +127,7 @@ export function AiModePanel({
                 </div>
               )}
             </div>
+<<<<<<< HEAD
             <div className="mt-5 break-words text-xl font-black leading-7 text-white">
               {option.label}
             </div>
@@ -132,6 +137,13 @@ export function AiModePanel({
             <div className="mt-4 break-words text-xs leading-6 text-white/45">
               {option.promptHint}
             </div>
+=======
+            <div className="mt-5 text-xl font-black text-white">{option.label}</div>
+            <p className="mt-3 text-sm leading-7 text-white/65">
+              {option.description}
+            </p>
+            <div className="mt-4 text-xs text-white/45">{option.promptHint}</div>
+>>>>>>> 6061ee5 (That's some optmisation)
           </button>
         ))}
       </div>
@@ -161,7 +173,11 @@ export function AiModePanel({
                   <div className="text-[10px] font-black uppercase tracking-[0.32em] text-[#f4b63d]">
                     {message.role === "ai" ? "CineBot" : "You"}
                   </div>
+<<<<<<< HEAD
                   <div className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-white/75">
+=======
+                  <div className="mt-3 whitespace-pre-wrap text-sm leading-7 text-white/75">
+>>>>>>> 6061ee5 (That's some optmisation)
                     {message.content}
                   </div>
                 </div>
@@ -173,10 +189,17 @@ export function AiModePanel({
             <div className="text-[10px] font-black uppercase tracking-[0.35em] text-white/45">
               Prompt
             </div>
+<<<<<<< HEAD
             <div className="mt-3 break-words text-xl font-black leading-7 text-white">
               {activeOption?.label || "Choose a mode"}
             </div>
             <div className="mt-2 whitespace-pre-wrap break-words text-sm leading-7 text-white/60">
+=======
+            <div className="mt-3 text-xl font-black text-white">
+              {activeOption?.label || "Choose a mode"}
+            </div>
+            <div className="mt-2 text-sm leading-7 text-white/60">
+>>>>>>> 6061ee5 (That's some optmisation)
               {activeOption?.description ||
                 "Select one of the three AI behaviors before sending a message."}
             </div>
