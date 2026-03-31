@@ -629,32 +629,6 @@ export default function MovieInfo() {
             </div>
           </div>
         </div>
-
-        <div className="mt-8">
-          <PersistentCommentsPanel
-            comments={comments}
-            input={commentInput}
-            onInputChange={setCommentInput}
-            onSubmit={submitComment}
-            submitting={commentSubmitting}
-            currentUser={{
-              username: user.username,
-              fullName: user.fullName,
-              avatar: user.avatar,
-              profilePhoto: user.profilePhoto,
-            }}
-            title="Movie discussion"
-            subtitle="Persistent comments tied to this movie. This is stored discussion, not live room chat."
-            emptyMessage={
-              commentsLoading
-                ? "Loading comments..."
-                : "No comments yet. Start the discussion."
-            }
-          />
-          {commentStatus && (
-            <div className="mt-4 text-sm text-amber-200">{commentStatus}</div>
-          )}
-        </div>
       </div>
     </div>
   );

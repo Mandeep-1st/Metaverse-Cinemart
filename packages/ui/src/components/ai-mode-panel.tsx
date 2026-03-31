@@ -92,10 +92,14 @@ export function AiModePanel({
             {title}
           </h2>
 <<<<<<< HEAD
+<<<<<<< HEAD
           <p className="mt-3 max-w-3xl whitespace-pre-wrap break-words text-sm leading-7 text-white/60 md:text-base">
 =======
           <p className="mt-3 max-w-3xl text-sm leading-7 text-white/60 md:text-base">
 >>>>>>> 6061ee5 (That's some optmisation)
+=======
+          <p className="mt-3 max-w-3xl whitespace-pre-wrap break-words text-sm leading-7 text-white/60 md:text-base">
+>>>>>>> 7155281 (Adding some more shitee)
             {subtitle}
           </p>
         </div>
@@ -128,10 +132,14 @@ export function AiModePanel({
               )}
             </div>
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 7155281 (Adding some more shitee)
             <div className="mt-5 break-words text-xl font-black leading-7 text-white">
               {option.label}
             </div>
             <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-white/65">
+<<<<<<< HEAD
               {option.description}
             </p>
             <div className="mt-4 break-words text-xs leading-6 text-white/45">
@@ -144,6 +152,13 @@ export function AiModePanel({
             </p>
             <div className="mt-4 text-xs text-white/45">{option.promptHint}</div>
 >>>>>>> 6061ee5 (That's some optmisation)
+=======
+              {option.description}
+            </p>
+            <div className="mt-4 break-words text-xs leading-6 text-white/45">
+              {option.promptHint}
+            </div>
+>>>>>>> 7155281 (Adding some more shitee)
           </button>
         ))}
       </div>
@@ -174,10 +189,14 @@ export function AiModePanel({
                     {message.role === "ai" ? "CineBot" : "You"}
                   </div>
 <<<<<<< HEAD
+<<<<<<< HEAD
                   <div className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-white/75">
 =======
                   <div className="mt-3 whitespace-pre-wrap text-sm leading-7 text-white/75">
 >>>>>>> 6061ee5 (That's some optmisation)
+=======
+                  <div className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-white/75">
+>>>>>>> 7155281 (Adding some more shitee)
                     {message.content}
                   </div>
                 </div>
@@ -190,6 +209,7 @@ export function AiModePanel({
               Prompt
             </div>
 <<<<<<< HEAD
+<<<<<<< HEAD
             <div className="mt-3 break-words text-xl font-black leading-7 text-white">
               {activeOption?.label || "Choose a mode"}
             </div>
@@ -200,6 +220,12 @@ export function AiModePanel({
             </div>
             <div className="mt-2 text-sm leading-7 text-white/60">
 >>>>>>> 6061ee5 (That's some optmisation)
+=======
+            <div className="mt-3 break-words text-xl font-black leading-7 text-white">
+              {activeOption?.label || "Choose a mode"}
+            </div>
+            <div className="mt-2 whitespace-pre-wrap break-words text-sm leading-7 text-white/60">
+>>>>>>> 7155281 (Adding some more shitee)
               {activeOption?.description ||
                 "Select one of the three AI behaviors before sending a message."}
             </div>

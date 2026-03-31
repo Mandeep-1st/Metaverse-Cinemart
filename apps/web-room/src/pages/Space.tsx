@@ -334,12 +334,18 @@ function mapMovieToRichDetails(movie: MovieDetails) {
         }
       : null,
 <<<<<<< HEAD
+<<<<<<< HEAD
     genres: (movie.genres || [])
       .map((genre: any) => genre?.name)
       .filter(Boolean),
 =======
     genres: (movie.genres || []).map((genre: any) => genre?.name).filter(Boolean),
 >>>>>>> 6061ee5 (That's some optmisation)
+=======
+    genres: (movie.genres || [])
+      .map((genre: any) => genre?.name)
+      .filter(Boolean),
+>>>>>>> 7155281 (Adding some more shitee)
     releaseDate: movie.details?.release_date,
     runtime: movie.details?.runtime,
     rating: movie.metrics?.vote_average,
@@ -661,11 +667,16 @@ function TrailerModal({
         }}
       >
 <<<<<<< HEAD
+<<<<<<< HEAD
         Sync Time {localTime.toFixed(1)}s{" "}
         {watchparty ? "- Watch Party Sync" : "- Solo"}
 =======
         Sync Time {localTime.toFixed(1)}s {watchparty ? "- Watch Party Sync" : "- Solo"}
 >>>>>>> abc829b (Connecting the workflow)
+=======
+        Sync Time {localTime.toFixed(1)}s{" "}
+        {watchparty ? "- Watch Party Sync" : "- Solo"}
+>>>>>>> 7155281 (Adding some more shitee)
       </div>
     </div>
   );
@@ -673,26 +684,38 @@ function TrailerModal({
 
 function SyncedTrailerModal({
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 7155281 (Adding some more shitee)
   movieTitle,
   videos,
   selectedVideoKey,
   onSelectVideo,
+<<<<<<< HEAD
 =======
   videoUrl,
 >>>>>>> abc829b (Connecting the workflow)
+=======
+>>>>>>> 7155281 (Adding some more shitee)
   onClose,
   playing,
   syncedTime,
   watchparty,
 }: {
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 7155281 (Adding some more shitee)
   movieTitle?: string;
   videos: MovieVideo[];
   selectedVideoKey: string | null;
   onSelectVideo: (key: string) => void;
+<<<<<<< HEAD
 =======
   videoUrl: string;
 >>>>>>> abc829b (Connecting the workflow)
+=======
+>>>>>>> 7155281 (Adding some more shitee)
   onClose: () => void;
   playing: boolean;
   syncedTime: number;
@@ -702,12 +725,16 @@ function SyncedTrailerModal({
   const [localPlaying, setLocalPlaying] = useState(playing);
   const [localTime, setLocalTime] = useState(syncedTime);
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 7155281 (Adding some more shitee)
   const selectedVideo = useMemo(
     () => videos.find((video) => video.key === selectedVideoKey) || null,
     [selectedVideoKey, videos],
   );
   const videoUrl = selectedVideo ? toEmbeddableVideoUrl(selectedVideo) : "";
   const canRemoteControl = selectedVideo?.site === "YouTube";
+<<<<<<< HEAD
 
   useEffect(() => {
     setLocalPlaying(playing);
@@ -721,17 +748,24 @@ function SyncedTrailerModal({
     if (!videoUrl || !canRemoteControl) return;
 
 =======
+=======
+>>>>>>> 7155281 (Adding some more shitee)
 
   useEffect(() => {
     setLocalPlaying(playing);
-  }, [playing]);
+  }, [playing, selectedVideoKey]);
 
   useEffect(() => {
     setLocalTime(syncedTime);
-  }, [syncedTime]);
+  }, [syncedTime, selectedVideoKey]);
 
   useEffect(() => {
+<<<<<<< HEAD
 >>>>>>> abc829b (Connecting the workflow)
+=======
+    if (!videoUrl || !canRemoteControl) return;
+
+>>>>>>> 7155281 (Adding some more shitee)
     const cw = iframeRef.current?.contentWindow;
     if (!cw) return;
 
@@ -753,6 +787,7 @@ function SyncedTrailerModal({
       "*",
     );
 <<<<<<< HEAD
+<<<<<<< HEAD
   }, [canRemoteControl, playing, syncedTime, videoUrl]);
 
   useEffect(() => {
@@ -763,6 +798,12 @@ function SyncedTrailerModal({
   useEffect(() => {
     if (!localPlaying) return;
 >>>>>>> abc829b (Connecting the workflow)
+=======
+  }, [canRemoteControl, playing, syncedTime, videoUrl]);
+
+  useEffect(() => {
+    if (!localPlaying || !selectedVideo) return;
+>>>>>>> 7155281 (Adding some more shitee)
 
     const interval = window.setInterval(() => {
       setLocalTime((previous) => previous + 0.5);
@@ -770,10 +811,14 @@ function SyncedTrailerModal({
 
     return () => window.clearInterval(interval);
 <<<<<<< HEAD
+<<<<<<< HEAD
   }, [localPlaying, selectedVideo]);
 =======
   }, [localPlaying]);
 >>>>>>> abc829b (Connecting the workflow)
+=======
+  }, [localPlaying, selectedVideo]);
+>>>>>>> 7155281 (Adding some more shitee)
 
   const emitSyncUpdate = (nextState: { isPlaying: boolean; time: number }) => {
     if (!watchparty) return;
@@ -787,10 +832,15 @@ function SyncedTrailerModal({
 
   const togglePause = () => {
 <<<<<<< HEAD
+<<<<<<< HEAD
     if (!canRemoteControl) return;
 
 =======
 >>>>>>> abc829b (Connecting the workflow)
+=======
+    if (!canRemoteControl) return;
+
+>>>>>>> 7155281 (Adding some more shitee)
     const cw = iframeRef.current?.contentWindow;
     if (!cw) return;
 
@@ -813,10 +863,15 @@ function SyncedTrailerModal({
 
   const rewindTenSeconds = () => {
 <<<<<<< HEAD
+<<<<<<< HEAD
     if (!canRemoteControl) return;
 
 =======
 >>>>>>> abc829b (Connecting the workflow)
+=======
+    if (!canRemoteControl) return;
+
+>>>>>>> 7155281 (Adding some more shitee)
     const cw = iframeRef.current?.contentWindow;
     if (!cw) return;
 
@@ -838,6 +893,9 @@ function SyncedTrailerModal({
 
   return (
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 7155281 (Adding some more shitee)
     <div className="absolute inset-0 z-[300] bg-black/95">
       <div className="mx-auto flex h-full w-full max-w-[1920px] flex-col gap-4 px-4 py-4 lg:px-6">
         <div className="flex flex-col gap-4 rounded-[28px] border border-white/10 bg-black/45 px-5 py-4 backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between">
@@ -859,6 +917,7 @@ function SyncedTrailerModal({
                   : "No playable videos are available for this title yet."}
             </div>
           </div>
+<<<<<<< HEAD
 
           <div className="flex flex-wrap gap-3">
             <button
@@ -1028,84 +1087,142 @@ function SyncedTrailerModal({
         >
           Now Playing - Trailer
         </span>
+=======
+>>>>>>> 7155281 (Adding some more shitee)
 
-        <div style={{ display: "flex", gap: "10px" }}>
-          <button
-            onClick={rewindTenSeconds}
-            style={{
-              background: "rgba(255,255,255,0.12)",
-              border: "1px solid rgba(255,255,255,0.25)",
-              color: "#fff",
-              borderRadius: "999px",
-              padding: "6px 20px",
-              fontSize: "12px",
-              cursor: "pointer",
-              letterSpacing: "0.1em",
-            }}
-          >
-            -10s
-          </button>
-          <button
-            onClick={togglePause}
-            style={{
-              background: "rgba(255,255,255,0.12)",
-              border: "1px solid rgba(255,255,255,0.25)",
-              color: "#fff",
-              borderRadius: "999px",
-              padding: "6px 20px",
-              fontSize: "12px",
-              cursor: "pointer",
-              letterSpacing: "0.1em",
-              minWidth: "90px",
-            }}
-          >
-            {localPlaying ? "Pause" : "Play"}
-          </button>
-          <button
-            onClick={onClose}
-            style={{
-              background: "rgba(255,255,255,0.1)",
-              border: "1px solid rgba(255,255,255,0.2)",
-              color: "#fff",
-              borderRadius: "999px",
-              padding: "6px 20px",
-              fontSize: "12px",
-              cursor: "pointer",
-              letterSpacing: "0.1em",
-            }}
-          >
-            ESC - Close
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={rewindTenSeconds}
+              disabled={!canRemoteControl}
+              className="rounded-full border border-white/20 bg-white/10 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              -10s
+            </button>
+            <button
+              onClick={togglePause}
+              disabled={!canRemoteControl}
+              className="min-w-[100px] rounded-full border border-white/20 bg-white/10 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {localPlaying ? "Pause" : "Play"}
+            </button>
+            <button
+              onClick={onClose}
+              className="rounded-full border border-white/20 bg-white/10 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-white"
+            >
+              ESC - Close
+            </button>
+          </div>
         </div>
-      </div>
 
-      <iframe
-        ref={iframeRef}
-        title="Trailer"
-        width="1200px"
-        height="600px"
-        src={`${videoUrl}?autoplay=1&controls=1&enablejsapi=1`}
-        allow="autoplay; encrypted-media; fullscreen"
-        allowFullScreen
-        style={{
-          border: "none",
-          borderRadius: "8px",
-          display: "block",
-          boxShadow: "0 0 80px rgba(60,60,255,0.3)",
-        }}
-      />
+        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="flex min-h-0 flex-col gap-4 rounded-[32px] border border-white/10 bg-black/45 p-4 backdrop-blur-xl">
+            <div className="rounded-[28px] border border-white/10 bg-black/70 p-3">
+              {selectedVideo && videoUrl ? (
+                <iframe
+                  key={selectedVideo.key}
+                  ref={iframeRef}
+                  title={selectedVideo.name || selectedVideo.type || "Trailer"}
+                  src={`${videoUrl}${videoUrl.includes("?") ? "&" : "?"}autoplay=1&controls=1&enablejsapi=1`}
+                  allow="autoplay; encrypted-media; fullscreen"
+                  allowFullScreen
+                  className="h-[58vh] w-full rounded-[20px] border-0 xl:h-[68vh]"
+                />
+              ) : (
+                <div className="flex h-[58vh] items-center justify-center rounded-[20px] bg-black/80 px-6 text-center xl:h-[68vh]">
+                  <div>
+                    <div className="text-[10px] font-black uppercase tracking-[0.35em] text-[#f4b63d]">
+                      Video selection
+                    </div>
+                    <div className="mt-4 text-3xl font-black italic text-white">
+                      Choose what to play
+                    </div>
+                    <p className="mt-3 max-w-xl text-sm leading-7 text-white/60">
+                      This room keeps the existing playback controls, but it no
+                      longer guesses the wrong trailer. Pick one of the
+                      available clips from the panel on the right.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
 
-      <div
-        style={{
-          color: "#fff",
-          opacity: 0.7,
-          fontSize: "12px",
-          letterSpacing: "0.18em",
-          textTransform: "uppercase",
-        }}
-      >
-        Sync Time {localTime.toFixed(1)}s{" "}
-        {watchparty ? "- Watch Party Sync" : "- Solo"}
+            <div className="rounded-[24px] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm leading-6 text-white/60">
+              Sync time {localTime.toFixed(1)}s{" "}
+              {watchparty ? "• Watch party sync enabled" : "• Solo mode"}
+              {!canRemoteControl && selectedVideo && (
+                <span className="block text-white/45">
+                  Playback controls are optimized for YouTube embeds. This
+                  selection can still be viewed here.
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex min-h-0 flex-col rounded-[32px] border border-white/10 bg-black/45 p-4 backdrop-blur-xl">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.35em] text-[#f4b63d]">
+                  Available Videos
+                </div>
+                <div className="mt-2 text-xl font-black text-white">
+                  Select a clip
+                </div>
+              </div>
+              <div className="rounded-full border border-white/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-white/45">
+                {videos.length}
+              </div>
+            </div>
+
+            <div className="mt-4 flex-1 space-y-3 overflow-y-auto pr-1">
+              {videos.length > 0 ? (
+                videos.map((video, index) => {
+                  const isSelected = video.key === selectedVideoKey;
+                  return (
+                    <button
+                      key={video.key}
+                      type="button"
+                      onClick={() => {
+                        onSelectVideo(video.key);
+                        setLocalTime(0);
+                        setLocalPlaying(true);
+                      }}
+                      className={`w-full rounded-[24px] border p-4 text-left transition-all ${
+                        isSelected
+                          ? "border-[#f4b63d]/60 bg-[#f4b63d]/10 shadow-[0_18px_40px_rgba(244,182,61,0.12)]"
+                          : "border-white/10 bg-white/[0.04] hover:border-white/20"
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-[#f4b63d]">
+                          {video.type || "Video"}
+                        </span>
+                        {video.official && (
+                          <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-white/45">
+                            Official
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-3 text-base font-black leading-6 text-white">
+                        {video.name ||
+                          `${movieTitle || "Movie"} clip ${index + 1}`}
+                      </div>
+                      <div className="mt-2 text-sm leading-6 text-white/50">
+                        {video.site}
+                        {video.published_at
+                          ? ` • ${new Date(video.published_at).getFullYear()}`
+                          : ""}
+                      </div>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="rounded-[24px] border border-dashed border-white/10 p-5 text-sm leading-7 text-white/55">
+                  No playable videos were returned for this movie.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 >>>>>>> abc829b (Connecting the workflow)
     </div>
@@ -1173,12 +1290,17 @@ function ContextualCommentsOverlay({ onClose }: { onClose: () => void }) {
     <OverlayShell title="Comments / Chairs" onClose={onClose}>
       <div className="text-muted-foreground leading-relaxed">
 <<<<<<< HEAD
+<<<<<<< HEAD
         Live chat is available inside shared watch party rooms. Create or join a
         synced room to comment with the rest of the audience.
 =======
         Live chat is available inside shared watch party rooms. Create or join
         a synced room to comment with the rest of the audience.
 >>>>>>> abc829b (Connecting the workflow)
+=======
+        Live chat is available inside shared watch party rooms. Create or join a
+        synced room to comment with the rest of the audience.
+>>>>>>> 7155281 (Adding some more shitee)
       </div>
     </OverlayShell>
   );
@@ -1399,7 +1521,9 @@ function RoomAIChatOverlay({
           </button>
         </div>
 
-        {status && <div className="text-sm text-muted-foreground">{status}</div>}
+        {status && (
+          <div className="text-sm text-muted-foreground">{status}</div>
+        )}
       </div>
     </OverlayShell>
   );
@@ -1482,8 +1606,7 @@ function VoteDock({
           {recommendations.slice(0, 3).map((recommendation) => {
             const voteCount =
               votes.find(
-                (vote) =>
-                  vote.optionId === String(recommendation.tmdb_id),
+                (vote) => vote.optionId === String(recommendation.tmdb_id),
               )?.count || 0;
 
             return (
@@ -1631,7 +1754,9 @@ function RoomAiExperienceOverlay({
   currentUser: ViewerUser | null;
 }) {
   const [selectedMode, setSelectedMode] = useState<AiModeId | null>(null);
-  const [messages, setMessages] = useState<Array<{ role: "user" | "ai"; content: string }>>([
+  const [messages, setMessages] = useState<
+    Array<{ role: "user" | "ai"; content: string }>
+  >([
     {
       role: "ai",
       content:
@@ -1647,8 +1772,7 @@ function RoomAiExperienceOverlay({
       "Tell me what you liked or disliked and I will suggest one movie that matches that feeling.",
     context:
       "Ask a contextual question about the current movie, its cast, plot, or direction.",
-    chat:
-      "Use simple chat for broader movie conversation and lightweight recommendations.",
+    chat: "Use simple chat for broader movie conversation and lightweight recommendations.",
   };
 
   const handleModeSelect = (mode: AiModeId) => {
@@ -1738,7 +1862,7 @@ function RoomAiExperienceOverlay({
 
   return (
     <div className="absolute inset-0 z-[240] flex items-center justify-center bg-black/80 p-5">
-      <div className="h-[86vh] w-[90vw] max-w-[1500px] overflow-hidden rounded-[36px] border border-white/10 bg-background/95 shadow-2xl">
+      <div className="h-[86vh] w-[90vw] max-w-[1500px] overflow-hidden rounded-[36px] border border-white/10 bg-accent-foreground shadow-2xl">
         <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
           <div>
             <div className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">
@@ -1805,20 +1929,35 @@ function RichMovieInfoOverlay({
   const details = mapMovieToRichDetails(movie);
 
   return (
-    <OverlayShell title="Movie Info" onClose={onClose}>
-      <MovieRichDetails
-        title={movie.title}
-        overview={movie.overview}
-        genres={details.genres}
-        releaseDate={details.releaseDate}
-        runtime={details.runtime}
-        rating={details.rating}
-        director={details.director}
-        actors={details.actors}
-        poster={movie.images?.poster}
-        compact
-      />
-    </OverlayShell>
+    <div className="absolute inset-0 z-[220] flex items-center justify-center bg-black/70 p-6">
+      <div className="w-full max-w-4xl max-h-[90vh] rounded-[var(--radius)] bg-accent-foreground border border-border/20 p-5 shadow-2xl overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between mb-4">
+          <div className="font-black uppercase tracking-widest text-primary text-sm">
+            Movie Info
+          </div>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-full bg-card border border-border/20 hover:border-primary/40"
+          >
+            Close
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <MovieRichDetails
+            title={movie.title}
+            overview={movie.overview}
+            genres={details.genres}
+            releaseDate={details.releaseDate}
+            runtime={details.runtime}
+            rating={details.rating}
+            director={details.director}
+            actors={details.actors}
+            poster={movie.images?.poster}
+            compact
+          />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1854,17 +1993,17 @@ function RoomChatDrawer({
     <div className="absolute bottom-6 right-6 z-[245] pointer-events-auto">
       <div
         className={`flex transition-transform duration-300 ${
-          open ? "translate-x-0" : "translate-x-[316px]"
+          open ? "translate-x-0" : "translate-x-[372px]"
         }`}
       >
         <button
           onClick={() => setOpen((previous) => !previous)}
-          className="mr-3 self-end rounded-full border border-border/20 bg-background/80 px-4 py-3 text-[10px] font-black uppercase tracking-[0.3em] text-white backdrop-blur-xl"
+          className="mr-3 self-end rounded-full border border-border/20 bg-primary/80 px-4 py-3 text-[10px] font-black uppercase tracking-[0.3em] text-white backdrop-blur-xl"
         >
           {open ? "Hide Chat" : "User Chat"}
         </button>
 
-        <div className="w-[340px] rounded-[32px] border border-white/10 bg-background/90 p-4 shadow-2xl backdrop-blur-2xl">
+        <div className="w-[340px] rounded-[32px] border border-white/10 bg-card-foreground p-4 shadow-2xl backdrop-blur-2xl">
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-primary text-[10px] font-black uppercase tracking-[0.35em]">
@@ -3763,6 +3902,9 @@ function PersistentCreateRoomOverlay({
     setErrorText(null);
     try {
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 7155281 (Adding some more shitee)
       const response = await apiPost<ApiResponse<RoomCreationPayload>>(
         "/rooms",
         {
@@ -3776,6 +3918,7 @@ function PersistentCreateRoomOverlay({
           allowVoting: true,
         },
       );
+<<<<<<< HEAD
 =======
       const response = await apiPost<ApiResponse<RoomCreationPayload>>("/rooms", {
         movieId: selectedMovie.tmdb_id,
@@ -3788,6 +3931,8 @@ function PersistentCreateRoomOverlay({
         allowVoting: true,
       });
 >>>>>>> abc829b (Connecting the workflow)
+=======
+>>>>>>> 7155281 (Adding some more shitee)
 
       setCreatedRoom(response.data);
     } catch (error) {
@@ -3800,11 +3945,15 @@ function PersistentCreateRoomOverlay({
   }, [aiMode, maxParticipants, roomLabel, selectedMovie, visibility]);
 
 <<<<<<< HEAD
+<<<<<<< HEAD
   const webMainUrl = import.meta.env.VITE_WEB_MAIN_URL || DEFAULT_WEB_MAIN_URL;
 =======
   const webMainUrl =
     import.meta.env.VITE_WEB_MAIN_URL || DEFAULT_WEB_MAIN_URL;
 >>>>>>> abc829b (Connecting the workflow)
+=======
+  const webMainUrl = import.meta.env.VITE_WEB_MAIN_URL || DEFAULT_WEB_MAIN_URL;
+>>>>>>> 7155281 (Adding some more shitee)
 
   return (
     <div className="absolute inset-0 z-[210] flex items-center justify-center bg-black/70 p-6">
@@ -3910,6 +4059,7 @@ function PersistentCreateRoomOverlay({
                   <div className="mt-5 space-y-4">
                     <div>
 <<<<<<< HEAD
+<<<<<<< HEAD
                       <div className="font-black text-lg">
                         {selectedMovie.title}
                       </div>
@@ -3921,6 +4071,14 @@ function PersistentCreateRoomOverlay({
                       <div className="mt-1 text-sm text-muted-foreground">
                         TMDB score {selectedMovie.metrics?.vote_average ?? "N/A"}
 >>>>>>> abc829b (Connecting the workflow)
+=======
+                      <div className="font-black text-lg">
+                        {selectedMovie.title}
+                      </div>
+                      <div className="mt-1 text-sm text-muted-foreground">
+                        TMDB score{" "}
+                        {selectedMovie.metrics?.vote_average ?? "N/A"}
+>>>>>>> 7155281 (Adding some more shitee)
                       </div>
                     </div>
                     <input
@@ -3933,12 +4091,18 @@ function PersistentCreateRoomOverlay({
                       value={visibility}
                       onChange={(event) =>
 <<<<<<< HEAD
+<<<<<<< HEAD
                         setVisibility(
                           event.target.value as "private" | "public",
                         )
 =======
                         setVisibility(event.target.value as "private" | "public")
 >>>>>>> abc829b (Connecting the workflow)
+=======
+                        setVisibility(
+                          event.target.value as "private" | "public",
+                        )
+>>>>>>> 7155281 (Adding some more shitee)
                       }
                       className="w-full rounded-xl border border-border/20 bg-background/30 px-4 py-3 outline-none"
                     >
@@ -3995,12 +4159,18 @@ function PersistentCreateRoomOverlay({
             <div className="mt-6 flex flex-wrap gap-3">
               <button
 <<<<<<< HEAD
+<<<<<<< HEAD
                 onClick={() =>
                   navigator.clipboard.writeText(createdRoom.shareLink)
                 }
 =======
                 onClick={() => navigator.clipboard.writeText(createdRoom.shareLink)}
 >>>>>>> abc829b (Connecting the workflow)
+=======
+                onClick={() =>
+                  navigator.clipboard.writeText(createdRoom.shareLink)
+                }
+>>>>>>> 7155281 (Adding some more shitee)
                 className="rounded-full border border-border/20 px-5 py-3 text-[10px] font-black uppercase tracking-[0.3em]"
               >
                 Copy Link
@@ -4047,6 +4217,7 @@ function GuidedEnterOverlay({
         transition: "opacity 0.3s ease",
       }}
 <<<<<<< HEAD
+<<<<<<< HEAD
       className="absolute top-4 left-1/2 -translate-x-1/2 z-[250] flex items-center gap-2 px-5 py-2.5 rounded-full bg-amber-600/40 border border-amber-400/30 backdrop-blur-sm shadow-lg cursor-pointer select-none"
       onClick={() => !locked && controlsApiRef.current?.lock?.()}
     >
@@ -4059,6 +4230,13 @@ function GuidedEnterOverlay({
       <span className="text-white text-sm font-bold tracking-wide">
         Click to walk - WASD to move
 >>>>>>> abc829b (Connecting the workflow)
+=======
+      className="absolute top-4 left-1/2 -translate-x-1/2 z-[250] flex items-center gap-2 px-5 py-2.5 rounded-full bg-amber-600/40 border border-amber-400/30 backdrop-blur-sm shadow-lg cursor-pointer select-none"
+      onClick={() => !locked && controlsApiRef.current?.lock?.()}
+    >
+      <span className="text-amber-50 text-sm font-bold tracking-wide">
+        🖱 Click to walk — WASD to move
+>>>>>>> 7155281 (Adding some more shitee)
       </span>
     </div>
   );
@@ -4193,7 +4371,10 @@ export const Space = () => {
   const [trailerPlaying, setTrailerPlaying] = useState(true);
   const [trailerTime, setTrailerTime] = useState(0);
   const [selectedVideoKey, setSelectedVideoKey] = useState<string | null>(null);
+<<<<<<< HEAD
   const [cachedAvatarId, setCachedAvatarId] = useState<string | null>(null);
+=======
+>>>>>>> 7155281 (Adding some more shitee)
 
   useEffect(() => {
     setSelectedVideoKey(movie?.video?.key ?? null);
@@ -4252,14 +4433,20 @@ export const Space = () => {
 
   useEffect(() => {
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 7155281 (Adding some more shitee)
     if (
       !aiRoomMode ||
       mode !== "watchparty" ||
       initializedAiOverlayRef.current
     ) {
+<<<<<<< HEAD
 =======
     if (!aiRoomMode || mode !== "watchparty" || initializedAiOverlayRef.current) {
 >>>>>>> abc829b (Connecting the workflow)
+=======
+>>>>>>> 7155281 (Adding some more shitee)
       return;
     }
 
@@ -4330,6 +4517,20 @@ export const Space = () => {
         playerRef={playerRef}
         nearZoneRef={nearZoneRef}
         onNearZoneChange={setNearZone}
+<<<<<<< HEAD
+=======
+        videoUrl={
+          selectedVideoKey
+            ? toEmbeddableVideoUrl(
+                availableVideos.find(
+                  (video) => video.key === selectedVideoKey,
+                ) || null,
+              )
+            : undefined
+        }
+        isPlaying={trailerPlaying}
+        trailerTime={trailerTime}
+>>>>>>> 7155281 (Adding some more shitee)
         tvOverlayRef={tvOverlayRef}
         guests={mode === "watchparty" ? guests : []}
       />
@@ -4376,6 +4577,7 @@ export const Space = () => {
         </>
       )}
       {activeOverlay === "trailer" && (
+<<<<<<< HEAD
         <SyncedTrailerModal
           movieTitle={movie?.title}
           videos={availableVideos}
@@ -4397,6 +4599,13 @@ export const Space = () => {
         <SyncedTrailerModal
           videoUrl={videoUrl}
 >>>>>>> abc829b (Connecting the workflow)
+=======
+        <SyncedTrailerModal
+          movieTitle={movie?.title}
+          videos={availableVideos}
+          selectedVideoKey={selectedVideoKey}
+          onSelectVideo={setSelectedVideoKey}
+>>>>>>> 7155281 (Adding some more shitee)
           onClose={onCloseOverlay}
           playing={trailerPlaying}
           syncedTime={trailerTime}

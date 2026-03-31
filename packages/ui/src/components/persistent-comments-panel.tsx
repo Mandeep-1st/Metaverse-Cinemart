@@ -29,9 +29,13 @@ type PersistentCommentsPanelProps = {
   emptyMessage?: string;
   className?: string;
 <<<<<<< HEAD
+<<<<<<< HEAD
   commentsClassName?: string;
 =======
 >>>>>>> 6061ee5 (That's some optmisation)
+=======
+  commentsClassName?: string;
+>>>>>>> 7155281 (Adding some more shitee)
   composerDisabled?: boolean;
 };
 
@@ -63,9 +67,13 @@ export function PersistentCommentsPanel({
   emptyMessage = "No comments yet. Start the discussion.",
   className,
 <<<<<<< HEAD
+<<<<<<< HEAD
   commentsClassName,
 =======
 >>>>>>> 6061ee5 (That's some optmisation)
+=======
+  commentsClassName,
+>>>>>>> 7155281 (Adding some more shitee)
   composerDisabled = false,
 }: PersistentCommentsPanelProps) {
   return (
@@ -107,10 +115,14 @@ export function PersistentCommentsPanel({
               rows={4}
               disabled={composerDisabled || submitting}
 <<<<<<< HEAD
+<<<<<<< HEAD
               className="w-full resize-none rounded-[24px] border border-white/10 bg-black/25 px-4 py-4 text-sm leading-7 text-white outline-none placeholder:text-white/35"
 =======
               className="w-full resize-none rounded-[24px] border border-white/10 bg-black/25 px-4 py-4 text-sm text-white outline-none placeholder:text-white/35"
 >>>>>>> 6061ee5 (That's some optmisation)
+=======
+              className="w-full resize-none rounded-[24px] border border-white/10 bg-black/25 px-4 py-4 text-sm leading-7 text-white outline-none placeholder:text-white/35"
+>>>>>>> 7155281 (Adding some more shitee)
             />
             <div className="mt-4 flex justify-end">
               <button
@@ -127,10 +139,14 @@ export function PersistentCommentsPanel({
       </div>
 
 <<<<<<< HEAD
+<<<<<<< HEAD
       <div className={cn("mt-6 grid gap-4", commentsClassName)}>
 =======
       <div className="mt-6 grid gap-4">
 >>>>>>> 6061ee5 (That's some optmisation)
+=======
+      <div className={cn("mt-6 grid gap-4", commentsClassName)}>
+>>>>>>> 7155281 (Adding some more shitee)
         {comments.map((comment) => (
           <div
             key={comment._id || comment.id || `${comment.username}-${comment.createdAt}`}
@@ -147,6 +163,7 @@ export function PersistentCommentsPanel({
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <div>
 <<<<<<< HEAD
+<<<<<<< HEAD
                   <div className="font-black text-white break-words">
                     {comment.fullName || comment.username}
                   </div>
@@ -155,6 +172,11 @@ export function PersistentCommentsPanel({
                       {comment.fullName || comment.username}
                     </div>
 >>>>>>> 6061ee5 (That's some optmisation)
+=======
+                  <div className="font-black text-white break-words">
+                    {comment.fullName || comment.username}
+                  </div>
+>>>>>>> 7155281 (Adding some more shitee)
                     <div className="text-xs uppercase tracking-[0.28em] text-white/40">
                       @{comment.username}
                     </div>
@@ -164,10 +186,14 @@ export function PersistentCommentsPanel({
                   </div>
                 </div>
 <<<<<<< HEAD
+<<<<<<< HEAD
                 <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-white/70">
 =======
                 <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-white/70">
 >>>>>>> 6061ee5 (That's some optmisation)
+=======
+                <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-white/70">
+>>>>>>> 7155281 (Adding some more shitee)
                   {comment.text}
                 </p>
               </div>
