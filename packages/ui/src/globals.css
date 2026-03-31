@@ -194,7 +194,7 @@
   * {
     @apply border-border;
   }
-  
+
   html {
     /* Ensures every anchor or programmatic scroll is smooth */
     scroll-behavior: smooth;

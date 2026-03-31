@@ -246,8 +246,11 @@ export default function SignupPage() {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="new-password"
+                  autoCapitalize="none"
+                  spellCheck={false}
                   placeholder="ACCESS_KEY"
-                  className="w-full bg-background/60 border border-border/20 rounded-xl py-4 sm:py-5 md:py-6 pl-12 sm:pl-16 pr-12 sm:pr-14 text-foreground font-bold placeholder:text-muted-foreground tracking-widest text-[10px] sm:text-xs uppercase focus:border-primary/50 focus:outline-none transition-all"
+                  className="w-full rounded-xl border border-border/20 bg-background/60 py-4 pl-12 pr-12 text-sm font-semibold text-foreground normal-case tracking-normal placeholder:text-[10px] placeholder:font-bold placeholder:uppercase placeholder:tracking-widest placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none transition-all sm:py-5 sm:pl-16 sm:pr-14 sm:placeholder:text-xs md:py-6"
                 />
                 <button
                   type="button"

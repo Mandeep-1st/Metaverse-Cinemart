@@ -26,6 +26,34 @@ export class TMDBService {
         }
     }
 
+    private static buildVideoLinks(video: any) {
+        const key = String(video?.key ?? "");
+        const site = String(video?.site ?? "");
+
+        if (!key || !site) {
+            return { url: "", embedUrl: "" };
+        }
+
+        if (site === "YouTube") {
+            return {
+                url: `https://www.youtube.com/watch?v=${key}`,
+                embedUrl: `https://www.youtube.com/embed/${key}`,
+            };
+        }
+
+        if (site === "Vimeo") {
+            return {
+                url: `https://vimeo.com/${key}`,
+                embedUrl: `https://player.vimeo.com/video/${key}`,
+            };
+        }
+
+        return {
+            url: key,
+            embedUrl: "",
+        };
+    }
+
     // 1. Seeder - Returns number of movies ingested
     static async seedPopularMovies(pages: number = 10): Promise<number> {
         console.log("Bulk seeding started.")
@@ -124,6 +152,12 @@ export class TMDBService {
             tmdb_id: Number.isNaN(normalizedId) ? tmdbId : normalizedId
         });
         if (existingMovie) {
+            if (typeof (existingMovie as any).videos === "undefined") {
+                const refreshedMovie = await this.fetchAndIngestMovie(
+                    Number.isNaN(normalizedId) ? tmdbId : normalizedId,
+                );
+                return refreshedMovie || existingMovie;
+            }
             console.log("Movie should exist")
             return existingMovie;
         }
@@ -220,7 +254,30 @@ export class TMDBService {
 
     private static transformData(data: any) {
         const IMAGE_BASE_URL = "https://image.tmdb.org/t/p/original"; // High quality
-        const YOUTUBE_BASE_URL = "https://www.youtube.com/watch?v=";
+        const playableVideos = (data.videos?.results || [])
+            .map((video: any) => {
+                const links = this.buildVideoLinks(video);
+
+                if (!links.url) {
+                    return null;
+                }
+
+                return {
+                    key: video.key,
+                    url: links.url,
+                    embedUrl: links.embedUrl || undefined,
+                    site: video.site,
+                    name: video.name,
+                    type: video.type,
+                    official: video.official,
+                    published_at: video.published_at,
+                };
+            })
+            .filter(Boolean);
+
+        const explicitTrailer = playableVideos.find(
+            (video: any) => String(video?.type ?? "").toLowerCase() === "trailer",
+        );
 
         return {
             tmdb_id: data.id,
@@ -233,11 +290,8 @@ export class TMDBService {
                     ? `${IMAGE_BASE_URL}${data.images.logos[0].file_path}`
                     : null
             },
-            video: data.videos?.results?.[0] ? {
-                key: data.videos.results[0].key,
-                url: `${YOUTUBE_BASE_URL}${data.videos.results[0].key}`,
-                site: data.videos.results[0].site
-            } : undefined,
+            video: explicitTrailer,
+            videos: playableVideos,
 
             genres: data.genres || [],
             keywords: data.keywords?.keywords || [],

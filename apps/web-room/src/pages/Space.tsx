@@ -63,7 +63,26 @@ type MovieDetails = {
     backdrop?: string | null;
     logo?: string | null;
   };
-  video?: { url: string; key: string; site: string };
+  video?: {
+    url: string;
+    key: string;
+    site: string;
+    embedUrl?: string;
+    name?: string;
+    type?: string;
+    official?: boolean;
+    published_at?: string;
+  };
+  videos?: Array<{
+    url: string;
+    key: string;
+    site: string;
+    embedUrl?: string;
+    name?: string;
+    type?: string;
+    official?: boolean;
+    published_at?: string;
+  }>;
   genres?: Array<{ id?: number; name?: string }> | Array<any>;
   credits?: {
     cast?: Array<{
@@ -88,6 +107,8 @@ type MovieDetails = {
     vote_average?: number;
   };
 };
+
+type MovieVideo = NonNullable<MovieDetails["videos"]>[number];
 
 type Mode = "solo" | "watchparty" | "create-room";
 type ZoneId = "north" | "west" | "east" | "south";
@@ -153,15 +174,48 @@ function isTypingElement(target: EventTarget | null) {
 }
 
 function toYouTubeEmbed(urlOrKey: string) {
-  // Backend returns `https://www.youtube.com/watch?v=KEY`
   if (urlOrKey.startsWith("http")) {
     const u = new URL(urlOrKey);
-    const v = u.searchParams.get("v");
-    if (v) return `https://www.youtube.com/embed/${v}`;
-    // fallback: return as-is
+
+    if (u.hostname.includes("youtube.com")) {
+      if (u.pathname.includes("/embed/")) {
+        return urlOrKey;
+      }
+
+      const v = u.searchParams.get("v");
+      if (v) return `https://www.youtube.com/embed/${v}`;
+    }
+
+    if (u.hostname.includes("youtu.be")) {
+      return `https://www.youtube.com/embed/${u.pathname.replace("/", "")}`;
+    }
+
+    if (u.hostname.includes("player.vimeo.com")) {
+      return urlOrKey;
+    }
+
+    if (u.hostname.includes("vimeo.com")) {
+      return `https://player.vimeo.com/video/${u.pathname.replace("/", "")}`;
+    }
+
     return urlOrKey;
   }
+
   return `https://www.youtube.com/embed/${urlOrKey}`;
+}
+
+function toEmbeddableVideoUrl(
+  video?: {
+    url?: string;
+    key?: string;
+    embedUrl?: string;
+  } | null,
+) {
+  if (!video) return "";
+  if (video.embedUrl) return video.embedUrl;
+  if (video.url) return toYouTubeEmbed(video.url);
+  if (video.key) return toYouTubeEmbed(video.key);
+  return "";
 }
 
 // ---------------------------------------------------------------------------
@@ -261,7 +315,9 @@ function mapMovieToRichDetails(movie: MovieDetails) {
           image: directorEntry.profile_path,
         }
       : null,
-    genres: (movie.genres || []).map((genre: any) => genre?.name).filter(Boolean),
+    genres: (movie.genres || [])
+      .map((genre: any) => genre?.name)
+      .filter(Boolean),
     releaseDate: movie.details?.release_date,
     runtime: movie.details?.runtime,
     rating: movie.metrics?.vote_average,
@@ -338,8 +394,8 @@ function OverlayShell({
 }) {
   return (
     <div className="absolute inset-0 z-[220] flex items-center justify-center bg-black/70 p-6">
-      <div className="w-full max-w-4xl rounded-[var(--radius)] bg-background/90 border border-border/20 p-5 shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between mb-4">
+      <div className="w-full max-w-4xl max-h-[90vh] rounded-[var(--radius)] bg-card-foreground border border-border/20 p-5 shadow-2xl overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between mb-4 flex-shrink-0">
           <div className="font-black uppercase tracking-widest text-primary text-sm">
             {title}
           </div>
@@ -350,7 +406,9 @@ function OverlayShell({
             Close
           </button>
         </div>
-        {children}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden pr-2">
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -580,20 +638,27 @@ function TrailerModal({
           textTransform: "uppercase",
         }}
       >
-        Sync Time {localTime.toFixed(1)}s {watchparty ? "- Watch Party Sync" : "- Solo"}
+        Sync Time {localTime.toFixed(1)}s{" "}
+        {watchparty ? "- Watch Party Sync" : "- Solo"}
       </div>
     </div>
   );
 }
 
 function SyncedTrailerModal({
-  videoUrl,
+  movieTitle,
+  videos,
+  selectedVideoKey,
+  onSelectVideo,
   onClose,
   playing,
   syncedTime,
   watchparty,
 }: {
-  videoUrl: string;
+  movieTitle?: string;
+  videos: MovieVideo[];
+  selectedVideoKey: string | null;
+  onSelectVideo: (key: string) => void;
   onClose: () => void;
   playing: boolean;
   syncedTime: number;
@@ -602,16 +667,24 @@ function SyncedTrailerModal({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [localPlaying, setLocalPlaying] = useState(playing);
   const [localTime, setLocalTime] = useState(syncedTime);
+  const selectedVideo = useMemo(
+    () => videos.find((video) => video.key === selectedVideoKey) || null,
+    [selectedVideoKey, videos],
+  );
+  const videoUrl = selectedVideo ? toEmbeddableVideoUrl(selectedVideo) : "";
+  const canRemoteControl = selectedVideo?.site === "YouTube";
 
   useEffect(() => {
     setLocalPlaying(playing);
-  }, [playing]);
+  }, [playing, selectedVideoKey]);
 
   useEffect(() => {
     setLocalTime(syncedTime);
-  }, [syncedTime]);
+  }, [syncedTime, selectedVideoKey]);
 
   useEffect(() => {
+    if (!videoUrl || !canRemoteControl) return;
+
     const cw = iframeRef.current?.contentWindow;
     if (!cw) return;
 
@@ -632,17 +705,17 @@ function SyncedTrailerModal({
       }),
       "*",
     );
-  }, [playing, syncedTime]);
+  }, [canRemoteControl, playing, syncedTime, videoUrl]);
 
   useEffect(() => {
-    if (!localPlaying) return;
+    if (!localPlaying || !selectedVideo) return;
 
     const interval = window.setInterval(() => {
       setLocalTime((previous) => previous + 0.5);
     }, 500);
 
     return () => window.clearInterval(interval);
-  }, [localPlaying]);
+  }, [localPlaying, selectedVideo]);
 
   const emitSyncUpdate = (nextState: { isPlaying: boolean; time: number }) => {
     if (!watchparty) return;
@@ -655,6 +728,8 @@ function SyncedTrailerModal({
   };
 
   const togglePause = () => {
+    if (!canRemoteControl) return;
+
     const cw = iframeRef.current?.contentWindow;
     if (!cw) return;
 
@@ -676,6 +751,8 @@ function SyncedTrailerModal({
   };
 
   const rewindTenSeconds = () => {
+    if (!canRemoteControl) return;
+
     const cw = iframeRef.current?.contentWindow;
     if (!cw) return;
 
@@ -696,117 +773,161 @@ function SyncedTrailerModal({
   };
 
   return (
-    <div
-      style={{
-        position: "absolute",
-        inset: 0,
-        zIndex: 300,
-        background: "rgba(0,0,0,0.95)",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "16px",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          width: "min(98vw, 1920px)",
-        }}
-      >
-        <span
-          style={{
-            color: "#fff",
-            fontSize: "11px",
-            fontWeight: 700,
-            letterSpacing: "0.2em",
-            textTransform: "uppercase",
-            opacity: 0.6,
-          }}
-        >
-          Now Playing - Trailer
-        </span>
+    <div className="absolute inset-0 z-[300] bg-black/95">
+      <div className="mx-auto flex h-full w-full max-w-[1920px] flex-col gap-4 px-4 py-4 lg:px-6">
+        <div className="flex flex-col gap-4 rounded-[28px] border border-white/10 bg-black/45 px-5 py-4 backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.35em] text-white/50">
+              Theatre Video Deck
+            </div>
+            <div className="mt-2 text-2xl font-black italic text-white">
+              {selectedVideo?.name ||
+                selectedVideo?.type ||
+                movieTitle ||
+                "Movie videos"}
+            </div>
+            <div className="mt-2 text-sm leading-6 text-white/55">
+              {selectedVideo
+                ? `${selectedVideo.site}${selectedVideo.type ? ` • ${selectedVideo.type}` : ""}`
+                : videos.length > 0
+                  ? "No explicit trailer was auto-selected. Choose a video from the list."
+                  : "No playable videos are available for this title yet."}
+            </div>
+          </div>
 
-        <div style={{ display: "flex", gap: "10px" }}>
-          <button
-            onClick={rewindTenSeconds}
-            style={{
-              background: "rgba(255,255,255,0.12)",
-              border: "1px solid rgba(255,255,255,0.25)",
-              color: "#fff",
-              borderRadius: "999px",
-              padding: "6px 20px",
-              fontSize: "12px",
-              cursor: "pointer",
-              letterSpacing: "0.1em",
-            }}
-          >
-            -10s
-          </button>
-          <button
-            onClick={togglePause}
-            style={{
-              background: "rgba(255,255,255,0.12)",
-              border: "1px solid rgba(255,255,255,0.25)",
-              color: "#fff",
-              borderRadius: "999px",
-              padding: "6px 20px",
-              fontSize: "12px",
-              cursor: "pointer",
-              letterSpacing: "0.1em",
-              minWidth: "90px",
-            }}
-          >
-            {localPlaying ? "Pause" : "Play"}
-          </button>
-          <button
-            onClick={onClose}
-            style={{
-              background: "rgba(255,255,255,0.1)",
-              border: "1px solid rgba(255,255,255,0.2)",
-              color: "#fff",
-              borderRadius: "999px",
-              padding: "6px 20px",
-              fontSize: "12px",
-              cursor: "pointer",
-              letterSpacing: "0.1em",
-            }}
-          >
-            ESC - Close
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={rewindTenSeconds}
+              disabled={!canRemoteControl}
+              className="rounded-full border border-white/20 bg-white/10 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              -10s
+            </button>
+            <button
+              onClick={togglePause}
+              disabled={!canRemoteControl}
+              className="min-w-[100px] rounded-full border border-white/20 bg-white/10 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {localPlaying ? "Pause" : "Play"}
+            </button>
+            <button
+              onClick={onClose}
+              className="rounded-full border border-white/20 bg-white/10 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-white"
+            >
+              ESC - Close
+            </button>
+          </div>
         </div>
-      </div>
 
-      <iframe
-        ref={iframeRef}
-        title="Trailer"
-        width="1200px"
-        height="600px"
-        src={`${videoUrl}?autoplay=1&controls=1&enablejsapi=1`}
-        allow="autoplay; encrypted-media; fullscreen"
-        allowFullScreen
-        style={{
-          border: "none",
-          borderRadius: "8px",
-          display: "block",
-          boxShadow: "0 0 80px rgba(60,60,255,0.3)",
-        }}
-      />
+        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="flex min-h-0 flex-col gap-4 rounded-[32px] border border-white/10 bg-black/45 p-4 backdrop-blur-xl">
+            <div className="rounded-[28px] border border-white/10 bg-black/70 p-3">
+              {selectedVideo && videoUrl ? (
+                <iframe
+                  key={selectedVideo.key}
+                  ref={iframeRef}
+                  title={selectedVideo.name || selectedVideo.type || "Trailer"}
+                  src={`${videoUrl}${videoUrl.includes("?") ? "&" : "?"}autoplay=1&controls=1&enablejsapi=1`}
+                  allow="autoplay; encrypted-media; fullscreen"
+                  allowFullScreen
+                  className="h-[58vh] w-full rounded-[20px] border-0 xl:h-[68vh]"
+                />
+              ) : (
+                <div className="flex h-[58vh] items-center justify-center rounded-[20px] bg-black/80 px-6 text-center xl:h-[68vh]">
+                  <div>
+                    <div className="text-[10px] font-black uppercase tracking-[0.35em] text-[#f4b63d]">
+                      Video selection
+                    </div>
+                    <div className="mt-4 text-3xl font-black italic text-white">
+                      Choose what to play
+                    </div>
+                    <p className="mt-3 max-w-xl text-sm leading-7 text-white/60">
+                      This room keeps the existing playback controls, but it no
+                      longer guesses the wrong trailer. Pick one of the
+                      available clips from the panel on the right.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
 
-      <div
-        style={{
-          color: "#fff",
-          opacity: 0.7,
-          fontSize: "12px",
-          letterSpacing: "0.18em",
-          textTransform: "uppercase",
-        }}
-      >
-        Sync Time {localTime.toFixed(1)}s{" "}
-        {watchparty ? "- Watch Party Sync" : "- Solo"}
+            <div className="rounded-[24px] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm leading-6 text-white/60">
+              Sync time {localTime.toFixed(1)}s{" "}
+              {watchparty ? "• Watch party sync enabled" : "• Solo mode"}
+              {!canRemoteControl && selectedVideo && (
+                <span className="block text-white/45">
+                  Playback controls are optimized for YouTube embeds. This
+                  selection can still be viewed here.
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex min-h-0 flex-col rounded-[32px] border border-white/10 bg-black/45 p-4 backdrop-blur-xl">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.35em] text-[#f4b63d]">
+                  Available Videos
+                </div>
+                <div className="mt-2 text-xl font-black text-white">
+                  Select a clip
+                </div>
+              </div>
+              <div className="rounded-full border border-white/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-white/45">
+                {videos.length}
+              </div>
+            </div>
+
+            <div className="mt-4 flex-1 space-y-3 overflow-y-auto pr-1">
+              {videos.length > 0 ? (
+                videos.map((video, index) => {
+                  const isSelected = video.key === selectedVideoKey;
+                  return (
+                    <button
+                      key={video.key}
+                      type="button"
+                      onClick={() => {
+                        onSelectVideo(video.key);
+                        setLocalTime(0);
+                        setLocalPlaying(true);
+                      }}
+                      className={`w-full rounded-[24px] border p-4 text-left transition-all ${
+                        isSelected
+                          ? "border-[#f4b63d]/60 bg-[#f4b63d]/10 shadow-[0_18px_40px_rgba(244,182,61,0.12)]"
+                          : "border-white/10 bg-white/[0.04] hover:border-white/20"
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-[#f4b63d]">
+                          {video.type || "Video"}
+                        </span>
+                        {video.official && (
+                          <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-white/45">
+                            Official
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-3 text-base font-black leading-6 text-white">
+                        {video.name ||
+                          `${movieTitle || "Movie"} clip ${index + 1}`}
+                      </div>
+                      <div className="mt-2 text-sm leading-6 text-white/50">
+                        {video.site}
+                        {video.published_at
+                          ? ` • ${new Date(video.published_at).getFullYear()}`
+                          : ""}
+                      </div>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="rounded-[24px] border border-dashed border-white/10 p-5 text-sm leading-7 text-white/55">
+                  No playable videos were returned for this movie.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -872,8 +993,8 @@ function ContextualCommentsOverlay({ onClose }: { onClose: () => void }) {
   return (
     <OverlayShell title="Comments / Chairs" onClose={onClose}>
       <div className="text-muted-foreground leading-relaxed">
-        Live chat is available inside shared watch party rooms. Create or join
-        a synced room to comment with the rest of the audience.
+        Live chat is available inside shared watch party rooms. Create or join a
+        synced room to comment with the rest of the audience.
       </div>
     </OverlayShell>
   );
@@ -1092,7 +1213,9 @@ function RoomAIChatOverlay({
           </button>
         </div>
 
-        {status && <div className="text-sm text-muted-foreground">{status}</div>}
+        {status && (
+          <div className="text-sm text-muted-foreground">{status}</div>
+        )}
       </div>
     </OverlayShell>
   );
@@ -1175,8 +1298,7 @@ function VoteDock({
           {recommendations.slice(0, 3).map((recommendation) => {
             const voteCount =
               votes.find(
-                (vote) =>
-                  vote.optionId === String(recommendation.tmdb_id),
+                (vote) => vote.optionId === String(recommendation.tmdb_id),
               )?.count || 0;
 
             return (
@@ -1324,7 +1446,9 @@ function RoomAiExperienceOverlay({
   currentUser: ViewerUser | null;
 }) {
   const [selectedMode, setSelectedMode] = useState<AiModeId | null>(null);
-  const [messages, setMessages] = useState<Array<{ role: "user" | "ai"; content: string }>>([
+  const [messages, setMessages] = useState<
+    Array<{ role: "user" | "ai"; content: string }>
+  >([
     {
       role: "ai",
       content:
@@ -1340,8 +1464,7 @@ function RoomAiExperienceOverlay({
       "Tell me what you liked or disliked and I will suggest one movie that matches that feeling.",
     context:
       "Ask a contextual question about the current movie, its cast, plot, or direction.",
-    chat:
-      "Use simple chat for broader movie conversation and lightweight recommendations.",
+    chat: "Use simple chat for broader movie conversation and lightweight recommendations.",
   };
 
   const handleModeSelect = (mode: AiModeId) => {
@@ -1431,7 +1554,7 @@ function RoomAiExperienceOverlay({
 
   return (
     <div className="absolute inset-0 z-[240] flex items-center justify-center bg-black/80 p-5">
-      <div className="h-[86vh] w-[90vw] max-w-[1500px] overflow-hidden rounded-[36px] border border-white/10 bg-background/95 shadow-2xl">
+      <div className="h-[86vh] w-[90vw] max-w-[1500px] overflow-hidden rounded-[36px] border border-white/10 bg-accent-foreground shadow-2xl">
         <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
           <div>
             <div className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">
@@ -1498,20 +1621,35 @@ function RichMovieInfoOverlay({
   const details = mapMovieToRichDetails(movie);
 
   return (
-    <OverlayShell title="Movie Info" onClose={onClose}>
-      <MovieRichDetails
-        title={movie.title}
-        overview={movie.overview}
-        genres={details.genres}
-        releaseDate={details.releaseDate}
-        runtime={details.runtime}
-        rating={details.rating}
-        director={details.director}
-        actors={details.actors}
-        poster={movie.images?.poster}
-        compact
-      />
-    </OverlayShell>
+    <div className="absolute inset-0 z-[220] flex items-center justify-center bg-black/70 p-6">
+      <div className="w-full max-w-4xl max-h-[90vh] rounded-[var(--radius)] bg-accent-foreground border border-border/20 p-5 shadow-2xl overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between mb-4">
+          <div className="font-black uppercase tracking-widest text-primary text-sm">
+            Movie Info
+          </div>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-full bg-card border border-border/20 hover:border-primary/40"
+          >
+            Close
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <MovieRichDetails
+            title={movie.title}
+            overview={movie.overview}
+            genres={details.genres}
+            releaseDate={details.releaseDate}
+            runtime={details.runtime}
+            rating={details.rating}
+            director={details.director}
+            actors={details.actors}
+            poster={movie.images?.poster}
+            compact
+          />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1547,17 +1685,17 @@ function RoomChatDrawer({
     <div className="absolute bottom-6 right-6 z-[245] pointer-events-auto">
       <div
         className={`flex transition-transform duration-300 ${
-          open ? "translate-x-0" : "translate-x-[316px]"
+          open ? "translate-x-0" : "translate-x-[372px]"
         }`}
       >
         <button
           onClick={() => setOpen((previous) => !previous)}
-          className="mr-3 self-end rounded-full border border-border/20 bg-background/80 px-4 py-3 text-[10px] font-black uppercase tracking-[0.3em] text-white backdrop-blur-xl"
+          className="mr-3 self-end rounded-full border border-border/20 bg-primary/80 px-4 py-3 text-[10px] font-black uppercase tracking-[0.3em] text-white backdrop-blur-xl"
         >
           {open ? "Hide Chat" : "User Chat"}
         </button>
 
-        <div className="w-[340px] rounded-[32px] border border-white/10 bg-background/90 p-4 shadow-2xl backdrop-blur-2xl">
+        <div className="w-[340px] rounded-[32px] border border-white/10 bg-card-foreground p-4 shadow-2xl backdrop-blur-2xl">
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-primary text-[10px] font-black uppercase tracking-[0.35em]">
@@ -2102,28 +2240,32 @@ function WatchPartyMediaBar({
   return (
     <div className="absolute top-0 left-0 right-0 z-[200] pointer-events-none">
       {/* ── Toggle button — always visible ── */}
-      <div className="pointer-events-auto flex justify-end px-3 pt-2">
+      <div
+        className={`pointer-events-auto flex justify-between items-center px-6 py-3 bg-neutral-950/70 backdrop-blur-xl ${
+          hidden ? "border-b border-border/20" : ""
+        }`}
+      >
+        <div className="text-sm font-black uppercase tracking-widest text-primary">
+          Watch Party
+        </div>
         <button
           onClick={() => setHidden((h) => !h)}
-          className="flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest bg-neutral-950/80 border border-border/20 backdrop-blur-xl text-white/70 hover:text-white hover:border-primary/40 transition-all"
+          className="flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest bg-neutral-900/80 border border-border/20 hover:border-primary/40 transition-all text-white/70 hover:text-white"
         >
-          {hidden ? "👁 Show Party" : "✕ Hide Party"}
+          {hidden ? "👁 Show" : "✕ Hide"}
         </button>
       </div>
 
       {/* ── Collapsible panel ── */}
       {!hidden && (
         <div className="pointer-events-auto bg-neutral-950/70 border-b border-border/20 backdrop-blur-xl p-3">
-          <div className="flex items-center justify-between gap-3 mb-2">
-            <div className="text-sm font-black uppercase tracking-widest text-primary">
-              Watch Party
-            </div>
+          <div className="flex items-center justify-end mb-2">
             <div className="text-xs text-white/70 truncate">{status}</div>
           </div>
 
           <div className="flex gap-3 overflow-x-auto pb-1">
             {/* Local feed */}
-            <div className="min-w-[220px] w-[220px] rounded-xl border border-border/20 bg-neutral-900 p-2">
+            <div className="min-w-55 w-55 rounded-xl border border-border/20 bg-neutral-900 p-2">
               <div className="text-xs font-bold text-white/80 mb-2">You</div>
               <div className="w-full aspect-video rounded-lg overflow-hidden bg-black border border-border/10 relative">
                 <video
@@ -2169,7 +2311,7 @@ function WatchPartyMediaBar({
               .map((m) => (
                 <div
                   key={m.consumerId}
-                  className="min-w-[220px] w-[220px] rounded-xl border border-border/20 bg-neutral-900 p-2"
+                  className="min-w-55 w-55 rounded-xl border border-border/20 bg-neutral-900 p-2"
                 >
                   <div className="text-xs font-bold text-white/80 mb-2">
                     Guest
@@ -2767,16 +2909,19 @@ function PersistentCreateRoomOverlay({
     setCreating(true);
     setErrorText(null);
     try {
-      const response = await apiPost<ApiResponse<RoomCreationPayload>>("/rooms", {
-        movieId: selectedMovie.tmdb_id,
-        label: roomLabel.trim() || `${selectedMovie.title} Watch Party`,
-        aiMode,
-        visibility,
-        maxParticipants,
-        allowChat: true,
-        allowVoice: true,
-        allowVoting: true,
-      });
+      const response = await apiPost<ApiResponse<RoomCreationPayload>>(
+        "/rooms",
+        {
+          movieId: selectedMovie.tmdb_id,
+          label: roomLabel.trim() || `${selectedMovie.title} Watch Party`,
+          aiMode,
+          visibility,
+          maxParticipants,
+          allowChat: true,
+          allowVoice: true,
+          allowVoting: true,
+        },
+      );
 
       setCreatedRoom(response.data);
     } catch (error) {
@@ -2788,8 +2933,7 @@ function PersistentCreateRoomOverlay({
     }
   }, [aiMode, maxParticipants, roomLabel, selectedMovie, visibility]);
 
-  const webMainUrl =
-    import.meta.env.VITE_WEB_MAIN_URL || DEFAULT_WEB_MAIN_URL;
+  const webMainUrl = import.meta.env.VITE_WEB_MAIN_URL || DEFAULT_WEB_MAIN_URL;
 
   return (
     <div className="absolute inset-0 z-[210] flex items-center justify-center bg-black/70 p-6">
@@ -2894,9 +3038,12 @@ function PersistentCreateRoomOverlay({
                 {selectedMovie ? (
                   <div className="mt-5 space-y-4">
                     <div>
-                      <div className="font-black text-lg">{selectedMovie.title}</div>
+                      <div className="font-black text-lg">
+                        {selectedMovie.title}
+                      </div>
                       <div className="mt-1 text-sm text-muted-foreground">
-                        TMDB score {selectedMovie.metrics?.vote_average ?? "N/A"}
+                        TMDB score{" "}
+                        {selectedMovie.metrics?.vote_average ?? "N/A"}
                       </div>
                     </div>
                     <input
@@ -2908,7 +3055,9 @@ function PersistentCreateRoomOverlay({
                     <select
                       value={visibility}
                       onChange={(event) =>
-                        setVisibility(event.target.value as "private" | "public")
+                        setVisibility(
+                          event.target.value as "private" | "public",
+                        )
                       }
                       className="w-full rounded-xl border border-border/20 bg-background/30 px-4 py-3 outline-none"
                     >
@@ -2964,7 +3113,9 @@ function PersistentCreateRoomOverlay({
             </div>
             <div className="mt-6 flex flex-wrap gap-3">
               <button
-                onClick={() => navigator.clipboard.writeText(createdRoom.shareLink)}
+                onClick={() =>
+                  navigator.clipboard.writeText(createdRoom.shareLink)
+                }
                 className="rounded-full border border-border/20 px-5 py-3 text-[10px] font-black uppercase tracking-[0.3em]"
               >
                 Copy Link
@@ -3010,11 +3161,11 @@ function GuidedEnterOverlay({
         opacity: locked ? 0 : 1,
         transition: "opacity 0.3s ease",
       }}
-      className="absolute top-4 left-1/2 -translate-x-1/2 z-[250] flex items-center gap-2 px-5 py-2.5 rounded-full bg-red-600/90 border border-red-400/60 backdrop-blur-sm shadow-lg cursor-pointer select-none"
+      className="absolute top-4 left-1/2 -translate-x-1/2 z-[250] flex items-center gap-2 px-5 py-2.5 rounded-full bg-amber-600/40 border border-amber-400/30 backdrop-blur-sm shadow-lg cursor-pointer select-none"
       onClick={() => !locked && controlsApiRef.current?.lock?.()}
     >
-      <span className="text-white text-sm font-bold tracking-wide">
-        Click to walk - WASD to move
+      <span className="text-amber-50 text-sm font-bold tracking-wide">
+        🖱 Click to walk — WASD to move
       </span>
     </div>
   );
@@ -3110,9 +3261,23 @@ export const Space = () => {
   }, [searchParams]);
 
   const { movie } = useMovieDetails(movieId);
-  const videoUrl = movie?.video?.url
-    ? toYouTubeEmbed(movie.video.url)
-    : undefined;
+  const availableVideos = useMemo(() => {
+    const rawVideos =
+      movie?.videos && movie.videos.length > 0
+        ? movie.videos
+        : movie?.video
+          ? [movie.video]
+          : [];
+
+    const deduped = new Map<string, MovieVideo>();
+
+    rawVideos.forEach((video) => {
+      if (!video?.key || deduped.has(video.key)) return;
+      deduped.set(video.key, video);
+    });
+
+    return Array.from(deduped.values());
+  }, [movie]);
 
   const mode: Mode = useMemo(() => {
     if (roomId && movieId) return "watchparty";
@@ -3123,6 +3288,11 @@ export const Space = () => {
   const [activeOverlay, setActiveOverlay] = useState<OverlayId>(null);
   const [trailerPlaying, setTrailerPlaying] = useState(true);
   const [trailerTime, setTrailerTime] = useState(0);
+  const [selectedVideoKey, setSelectedVideoKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSelectedVideoKey(movie?.video?.key ?? null);
+  }, [movie?.tmdb_id, movie?.video?.key]);
 
   const handleSyncTrailer = useCallback((playing: boolean, time: number) => {
     setTrailerPlaying(playing);
@@ -3159,7 +3329,11 @@ export const Space = () => {
   }, []);
 
   useEffect(() => {
-    if (!aiRoomMode || mode !== "watchparty" || initializedAiOverlayRef.current) {
+    if (
+      !aiRoomMode ||
+      mode !== "watchparty" ||
+      initializedAiOverlayRef.current
+    ) {
       return;
     }
 
@@ -3234,7 +3408,15 @@ export const Space = () => {
         playerRef={playerRef}
         nearZoneRef={nearZoneRef}
         onNearZoneChange={setNearZone}
-        videoUrl={videoUrl}
+        videoUrl={
+          selectedVideoKey
+            ? toEmbeddableVideoUrl(
+                availableVideos.find(
+                  (video) => video.key === selectedVideoKey,
+                ) || null,
+              )
+            : undefined
+        }
         isPlaying={trailerPlaying}
         trailerTime={trailerTime}
         tvOverlayRef={tvOverlayRef}
@@ -3285,9 +3467,12 @@ export const Space = () => {
           />
         </>
       )}
-      {activeOverlay === "trailer" && videoUrl && (
+      {activeOverlay === "trailer" && (
         <SyncedTrailerModal
-          videoUrl={videoUrl}
+          movieTitle={movie?.title}
+          videos={availableVideos}
+          selectedVideoKey={selectedVideoKey}
+          onSelectVideo={setSelectedVideoKey}
           onClose={onCloseOverlay}
           playing={trailerPlaying}
           syncedTime={trailerTime}

@@ -122,13 +122,13 @@ export function MovieRichDetails({
             </div>
             <h2
               className={cn(
-                "mt-3 font-black italic tracking-tight text-white",
+                "mt-3 break-words text-balance font-black italic tracking-tight text-white leading-[0.94]",
                 compact ? "text-3xl" : "text-4xl md:text-5xl",
               )}
             >
               {title}
             </h2>
-            <p className="mt-4 max-w-4xl text-sm leading-7 text-white/70 md:text-base">
+            <p className="mt-4 max-w-4xl whitespace-pre-wrap break-words text-sm leading-7 text-white/70 md:text-base">
               {overview || "No overview available for this title yet."}
             </p>
           </div>
@@ -170,7 +170,9 @@ export function MovieRichDetails({
               size={compact ? "lg" : "xl"}
             />
             <div>
-              <div className="text-2xl font-black text-white">{director.name}</div>
+              <div className="break-words text-2xl font-black text-white">
+                {director.name}
+              </div>
               {director.subtitle && (
                 <div className="mt-1 text-sm text-white/60">{director.subtitle}</div>
               )}
@@ -189,8 +191,10 @@ export function MovieRichDetails({
               Top {topActors.length || 0} actors
             </div>
           </div>
-          <div className="text-sm text-white/45">
-            {genres.length ? genres.join(" • ") : "Cast details from movie metadata"}
+          <div className="text-sm leading-6 text-white/45">
+            {genres.length
+              ? genres.join(" • ")
+              : "Cast details from movie metadata"}
           </div>
         </div>
 
@@ -212,7 +216,9 @@ export function MovieRichDetails({
                 className="mx-auto"
               />
               <div className="mt-4 text-center">
-                <div className="text-base font-black text-white">{actor.name}</div>
+                <div className="break-words text-base font-black text-white">
+                  {actor.name}
+                </div>
                 <div className="mt-1 text-sm text-white/55">
                   {actor.subtitle || "Cast"}
                 </div>

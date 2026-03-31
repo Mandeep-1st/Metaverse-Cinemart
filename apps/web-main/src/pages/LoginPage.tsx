@@ -170,8 +170,11 @@ export default function LoginPage() {
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+                autoCapitalize="none"
+                spellCheck={false}
                 placeholder="ACCESS_RESTORE_KEY"
-                className="w-full bg-background/40 border border-border/20 rounded-xl py-5 md:py-6 pl-16 pr-14 text-foreground font-bold placeholder:text-muted-foreground tracking-widest text-xs uppercase focus:border-primary/50 focus:outline-none transition-all"
+                className="w-full rounded-xl border border-border/20 bg-background/40 py-5 pl-16 pr-14 text-sm font-semibold text-foreground normal-case tracking-normal placeholder:text-xs placeholder:font-bold placeholder:uppercase placeholder:tracking-widest placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none transition-all md:py-6"
               />
               <button
                 type="button"
