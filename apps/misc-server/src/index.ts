@@ -3,16 +3,13 @@ import Redis from "ioredis";
 import { sendMail } from './utils/mailerService';
 import axios from 'axios';
 
-const REDIS_HOST = process.env.SERVER_VAR_REDIS_HOST || "127.0.0.1";
-const REDIS_PORT = 6379;
+// const REDIS_HOST = process.env.SERVER_VAR_REDIS_HOST || "127.0.0.1";
+// const REDIS_PORT = 6379;
+const REDIS_URL = process.env.SERVER_VAR_REDIS_URL || "";
 const HTTP_SERVER_URL =
     process.env.SERVER_VAR_HTTP_SERVER_URL || "http://localhost:8001";
 
-const redis = new Redis({
-    host: REDIS_HOST,
-    port: REDIS_PORT,
-    maxRetriesPerRequest: null
-});
+const redis = new Redis(REDIS_URL || "redis://127.0.0.1:6379");
 
 const sendPasswordToUser = async (task: any) => {
     //we will send the password here in email and use axios to hit the route of http server.
