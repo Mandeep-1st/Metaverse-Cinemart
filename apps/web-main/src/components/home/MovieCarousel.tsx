@@ -41,7 +41,9 @@ export default function MovieCarousel({
 
     const { scrollLeft, clientWidth } = scrollRef.current;
     const scrollTo =
-      direction === "left" ? scrollLeft - clientWidth : scrollLeft + clientWidth;
+      direction === "left"
+        ? scrollLeft - clientWidth
+        : scrollLeft + clientWidth;
     scrollRef.current.scrollTo({ left: scrollTo, behavior: "smooth" });
   };
 
@@ -60,11 +62,7 @@ export default function MovieCarousel({
           </h3>
         </div>
 
-<<<<<<< HEAD
         <div className="pointer-events-none absolute inset-x-0 top-[58%] z-70 hidden -translate-y-1/2 justify-between px-2 sm:flex md:px-6">
-=======
-        <div className="pointer-events-none absolute inset-x-0 top-[58%] z-[70] hidden -translate-y-1/2 justify-between px-2 sm:flex md:px-6">
->>>>>>> 7155281 (Adding some more shitee)
           <div className="pointer-events-auto -m-3 p-3">
             <button
               onClick={() => scroll("left")}
@@ -113,15 +111,9 @@ export default function MovieCarousel({
                 onBlur={() => setHoveredId(null)}
                 onClick={() => onMovieSelect(movie.tmdb_id)}
                 transition={{ duration: 0.25, ease: "easeOut" }}
-<<<<<<< HEAD
                 className={`relative group/card snap-center shrink-0 cursor-pointer overflow-hidden rounded-(--radius) border bg-card text-left shadow-2xl transition-[transform,border-color,box-shadow] duration-300 will-change-transform ${
                   isOpen
                     ? "-translate-y-1.5 border-primary/50 shadow-[0_30px_70px_rgba(0,0,0,0.45)]"
-=======
-                className={`relative group/card snap-center flex-shrink-0 cursor-pointer overflow-hidden rounded-[var(--radius)] border bg-card text-left shadow-2xl transition-[transform,border-color,box-shadow] duration-300 will-change-transform ${
-                  isOpen
-                    ? "translate-y-[-6px] border-primary/50 shadow-[0_30px_70px_rgba(0,0,0,0.45)]"
->>>>>>> 7155281 (Adding some more shitee)
                     : "border-border/20"
                 }`}
                 style={{
@@ -146,11 +138,7 @@ export default function MovieCarousel({
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 10 }}
-<<<<<<< HEAD
                       className="absolute inset-0 z-40 flex flex-col justify-end bg-linear-to-t from-background via-background/85 to-transparent p-6 md:p-8"
-=======
-                      className="absolute inset-0 z-40 flex flex-col justify-end bg-gradient-to-t from-background via-background/85 to-transparent p-6 md:p-8"
->>>>>>> 7155281 (Adding some more shitee)
                     >
                       <div className="flex items-center gap-3 mb-3 md:mb-4">
                         <span className="bg-primary text-primary-foreground text-[9px] md:text-[10px] font-black px-3 py-1 rounded-sm uppercase tracking-widest">
@@ -164,7 +152,8 @@ export default function MovieCarousel({
                       </h4>
 
                       <p className="mb-5 text-sm leading-6 text-muted-foreground line-clamp-3">
-                        {movie.overview || "Open the movie hub to watch, chat, and launch a room."}
+                        {movie.overview ||
+                          "Open the movie hub to watch, chat, and launch a room."}
                       </p>
 
                       <div className="flex items-center justify-between gap-3 md:gap-4">
