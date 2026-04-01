@@ -2,6 +2,15 @@ import 'dotenv/config'
 import Redis from "ioredis";
 import { sendMail } from './utils/mailerService';
 import axios from 'axios';
+import http from 'http'
+
+const PORT = process.env.PORT || 10000;
+http.createServer((req, res) => {
+    res.writeHead(200);
+    res.end('Misc Worker is Alive and running!\n');
+}).listen(PORT, () => {
+    console.log(`Dummy health-check server listening on port ${PORT}`);
+});
 
 // const REDIS_HOST = process.env.SERVER_VAR_REDIS_HOST || "127.0.0.1";
 // const REDIS_PORT = 6379;
