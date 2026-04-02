@@ -87,7 +87,7 @@ type MovieComment = {
   createdAt: string;
 };
 
-const webRoomUrl = import.meta.env.VITE_WEB_ROOM_URL || "http://localhost:5174";
+const webRoomUrl = "https://metaverse-cinemart-web-room.vercel.app";
 
 const toEmbedUrl = (video?: MovieVideo | null) => {
   if (!video) return "";
@@ -471,8 +471,8 @@ export default function MovieInfo() {
                     Choose a video below
                   </div>
                   <p className="mt-3 max-w-xl text-sm leading-7 text-white/60">
-                    This movie has video results, but none were explicitly tagged
-                    as a trailer. Pick the clip you want to play.
+                    This movie has video results, but none were explicitly
+                    tagged as a trailer. Pick the clip you want to play.
                   </p>
                 </div>
               </div>
@@ -601,7 +601,9 @@ export default function MovieInfo() {
                           </p>
                           <div className="mt-4 flex flex-wrap gap-3">
                             <button
-                              onClick={() => navigate(`/movies/${relatedMovie.tmdb_id}`)}
+                              onClick={() =>
+                                navigate(`/movies/${relatedMovie.tmdb_id}`)
+                              }
                               className="rounded-full border border-border/20 px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em]"
                             >
                               Open
