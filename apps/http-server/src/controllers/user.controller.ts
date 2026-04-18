@@ -1,6 +1,9 @@
 import { Request, Response } from "express";
 import { UserModel } from "../models/users.model";
 import { FeedbackModel } from "../models/feedback.model";
+import { MovieCommentModel } from "../models/movieComment.model";
+import { RoomModel } from "../models/room.model";
+import { UserPreferenceModel } from "../models/userPreference.model";
 import { ApiError } from "../utils/apiError";
 import { asyncHandler } from "../utils/asyncHandler";
 import { uploadOnCloudinary } from "../utils/cloudinary";
@@ -447,11 +450,140 @@ const updateAvatar = asyncHandler(async (req: any, res: Response) => {
         { new: true }
     ).select("-password");
 
+    if (!updatedUser) {
+        throw new ApiError(404, "User not found");
+    }
+
+    await MovieCommentModel.updateMany(
+        { userId: req.user._id },
+        {
+            $set: {
+                avatar: avatar.trim(),
+            },
+        }
+    );
+
     return res.status(200).json(
         new ApiResponse(
             200,
             { user: updatedUser },
             "Avatar updated successfully"
+        )
+    );
+});
+
+const updateProfile = asyncHandler(async (req: any, res: Response) => {
+    const { username } = req.body as { username?: string };
+    const currentUser = await UserModel.findById(req.user._id);
+
+    if (!currentUser) {
+        throw new ApiError(404, "User not found");
+    }
+
+    const updates: Record<string, string> = {};
+    const nextUsername =
+        typeof username === "string" ? username.trim().toLowerCase() : currentUser.username;
+    const profilePhotoLocalPath = req.file?.path;
+
+    if (!nextUsername && !profilePhotoLocalPath) {
+        throw new ApiError(400, "Provide a username or profile photo");
+    }
+
+    if (nextUsername && nextUsername !== currentUser.username) {
+        if (!/^[a-z0-9_]{3,20}$/.test(nextUsername)) {
+            throw new ApiError(
+                400,
+                "Username must be 3-20 characters using only letters, numbers, or underscores"
+            );
+        }
+
+        const existingUser = await UserModel.findOne({
+            username: nextUsername,
+            _id: { $ne: req.user._id },
+        });
+
+        if (existingUser) {
+            throw new ApiError(409, "Username is already taken");
+        }
+
+        updates.username = nextUsername;
+    }
+
+    if (profilePhotoLocalPath) {
+        const uploadedPhoto = await uploadOnCloudinary(profilePhotoLocalPath);
+
+        if (!uploadedPhoto?.url) {
+            throw new ApiError(400, "Profile photo upload failed");
+        }
+
+        updates.profilePhoto = uploadedPhoto.url;
+    }
+
+    if (Object.keys(updates).length === 0) {
+        throw new ApiError(400, "No profile changes were submitted");
+    }
+
+    const updatedUser = await UserModel.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set: updates,
+        },
+        { new: true }
+    ).select("-password");
+
+    if (!updatedUser) {
+        throw new ApiError(404, "User not found");
+    }
+
+    if (updates.username) {
+        await Promise.all([
+            UserPreferenceModel.updateOne(
+                { username: currentUser.username },
+                { $set: { username: updates.username } }
+            ),
+            RoomModel.updateMany(
+                { owner: req.user._id },
+                {
+                    $set: {
+                        ownerUsername: updates.username,
+                    },
+                }
+            ),
+            FeedbackModel.updateMany(
+                { userId: req.user._id },
+                {
+                    $set: {
+                        username: updates.username,
+                    },
+                }
+            ),
+            MovieCommentModel.updateMany(
+                { userId: req.user._id },
+                {
+                    $set: {
+                        username: updates.username,
+                    },
+                }
+            ),
+        ]);
+    }
+
+    if (updates.profilePhoto) {
+        await MovieCommentModel.updateMany(
+            { userId: req.user._id },
+            {
+                $set: {
+                    profilePhoto: updates.profilePhoto,
+                },
+            }
+        );
+    }
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            { user: updatedUser },
+            "Profile updated successfully"
         )
     );
 });
@@ -522,6 +654,7 @@ export {
     requestOtp,
     passwordSentByEmail,
     updateAvatar,
+    updateProfile,
     changePassword,
     submitFeedback,
 };

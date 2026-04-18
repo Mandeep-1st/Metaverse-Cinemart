@@ -12,6 +12,7 @@ import {
     signIn,
     submitFeedback,
     updateAvatar,
+    updateProfile,
     verifyOtp
 } from "../controllers/user.controller";
 
@@ -26,6 +27,7 @@ router.route("/me").get(verifyJwt, me)
 router.route("/logout").get(verifyJwt, logout)
 router.route("/password-email-sent").post(passwordSentByEmail);
 router.route("/avatar").patch(verifyJwt, updateAvatar)
+router.route("/profile").patch(verifyJwt, upload.single("profilePhoto"), updateProfile)
 router.route("/password").patch(verifyJwt, changePassword)
 router.route("/feedback").post(verifyJwt, submitFeedback)
 

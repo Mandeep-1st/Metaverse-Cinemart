@@ -18,6 +18,8 @@ export type AuthUser = {
   profilePhoto?: string;
   isVerified: boolean;
   role: "admin" | "user";
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 type AuthResponse = {

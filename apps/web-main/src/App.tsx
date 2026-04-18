@@ -21,6 +21,7 @@ import AiPage from "./pages/AiPage";
 import AvatarSelection from "./pages/AvatarSelection";
 import RoomsPage from "./pages/RoomsPage";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { AppShellProvider } from "./context/AppShellContext";
 import LoadingScreen from "./components/common/LoadingScreen";
 
 function ProtectedRoutes() {
@@ -38,7 +39,11 @@ function ProtectedRoutes() {
     return <Navigate to="/avatar" replace />;
   }
 
-  return <Outlet />;
+  return (
+    <AppShellProvider>
+      <Outlet />
+    </AppShellProvider>
+  );
 }
 
 function AvatarRoute() {

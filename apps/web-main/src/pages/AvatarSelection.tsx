@@ -2,39 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiPatch } from "../utils/apiClient";
 import { useAuth } from "../context/AuthContext";
-
-const avatars = [
-  {
-    id: "neo-scout",
-    title: "Neo Scout",
-    accent: "from-red-500 to-orange-400",
-  },
-  {
-    id: "quantum-noir",
-    title: "Quantum Noir",
-    accent: "from-sky-500 to-cyan-300",
-  },
-  {
-    id: "signal-rider",
-    title: "Signal Rider",
-    accent: "from-emerald-500 to-lime-400",
-  },
-  {
-    id: "void-caster",
-    title: "Void Caster",
-    accent: "from-fuchsia-500 to-pink-400",
-  },
-  {
-    id: "reel-drifter",
-    title: "Reel Drifter",
-    accent: "from-amber-500 to-yellow-300",
-  },
-  {
-    id: "echo-pilot",
-    title: "Echo Pilot",
-    accent: "from-violet-500 to-indigo-300",
-  },
-];
+import { avatarCatalog } from "../utils/avatarCatalog";
 
 type AvatarResponse = {
   statusCode: number;
@@ -97,7 +65,7 @@ export default function AvatarSelection() {
         </div>
 
         <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {avatars.map((avatar) => (
+          {avatarCatalog.map((avatar) => (
             <button
               key={avatar.id}
               onClick={() => setSelected(avatar.id)}
@@ -116,7 +84,7 @@ export default function AvatarSelection() {
                 {avatar.title}
               </div>
               <div className="mt-2 text-sm text-muted-foreground">
-                Sync this character to your profile and room presence.
+                {avatar.description}
               </div>
             </button>
           ))}

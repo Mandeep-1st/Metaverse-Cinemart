@@ -10,54 +10,33 @@ export type AvatarModelConfig = {
 
 export const avatarModelMap: Record<string, AvatarModelConfig> = {
   "neo-scout": {
-    url: "/models/neo-scout.glb",
+    url: "../../public/models/Adventurer.glb",
     scale: 1.15,
     rotationY: Math.PI,
     floorOffset: 0,
     fallbackColor: "#60a5fa",
   },
   "quantum-noir": {
-    url: "/models/quantum-noir.glb",
+    url: "../../public/models/Scifi.glb",
     scale: 1.12,
     rotationY: Math.PI,
     floorOffset: 0,
     fallbackColor: "#38bdf8",
   },
   "signal-rider": {
-    url: "/models/signal-rider.glb",
+    url: "../../public/models/Witch.glb",
     scale: 1.12,
     rotationY: Math.PI,
     floorOffset: 0,
     fallbackColor: "#4ade80",
   },
   "void-caster": {
-    url: "/models/void-caster.glb",
+    url: "../../public/models/King.glb",
     scale: 1.12,
     rotationY: Math.PI,
     floorOffset: 0,
     fallbackColor: "#f472b6",
-  },
-  "reel-drifter": {
-    url: "/models/reel-drifter.glb",
-    scale: 1.12,
-    rotationY: Math.PI,
-    floorOffset: 0,
-    fallbackColor: "#fbbf24",
-  },
-  "echo-pilot": {
-    url: "/models/echo-pilot.glb",
-    scale: 1.12,
-    rotationY: Math.PI,
-    floorOffset: 0,
-    fallbackColor: "#a78bfa",
-  },
-  default: {
-    url: "/models/default.glb",
-    scale: 1.12,
-    rotationY: Math.PI,
-    floorOffset: 0,
-    fallbackColor: "#f87171",
-  },
+  }
 };
 
 const preloadedUrls = new Set<string>();
