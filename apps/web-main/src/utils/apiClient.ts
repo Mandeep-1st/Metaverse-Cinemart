@@ -1,9 +1,9 @@
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
-const DEFAULT_HTTP_SERVER_URL = "http://localhost:3002";
+// const DEFAULT_HTTP_SERVER_URL = "http://localhost:3002";
 
 const httpServerUrl =
-  import.meta.env.VITE_HTTP_SERVER_URL || DEFAULT_HTTP_SERVER_URL;
+  import.meta.env.VITE_HTTP_SERVER_URL;
 
 const apiBaseUrl = `${httpServerUrl.replace(/\/$/, "")}/api/v1`;
 
