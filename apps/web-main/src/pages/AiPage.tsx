@@ -5,6 +5,7 @@ import { AiModePanel, type AiModeId } from "@repo/ui/components/ai-mode-panel";
 import LoadingScreen from "../components/common/LoadingScreen";
 import { useAuth } from "../context/AuthContext";
 import { apiGet, apiPost } from "../utils/apiClient";
+import { toast } from "../utils/toast";
 
 type ApiResponse<T> = {
   statusCode: number;
@@ -88,7 +89,18 @@ export default function AiPage() {
   };
 
   const handleSubmit = async () => {
-    if (!selectedMode || !input.trim() || !Number.isFinite(numericMovieId)) {
+    if (!selectedMode) {
+      toast.info("Pick an AI mode before sending a prompt.");
+      return;
+    }
+
+    if (!input.trim()) {
+      toast.info("Enter a prompt for the AI assistant.");
+      return;
+    }
+
+    if (!Number.isFinite(numericMovieId)) {
+      toast.error("We couldn't load this movie for AI right now.");
       return;
     }
 
@@ -143,8 +155,8 @@ export default function AiPage() {
           content: nextMessage,
         },
       ]);
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "AI request failed.");
+    } catch {
+      setStatus("");
     } finally {
       setSending(false);
     }

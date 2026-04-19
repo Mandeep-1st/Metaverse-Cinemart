@@ -1,4 +1,5 @@
 import { CinemaAvatar } from "@repo/ui/components/cinema-avatar";
+import { LoadingSpinner } from "@repo/ui/components/loading-spinner";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Camera,
@@ -18,6 +19,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth, type AuthUser } from "../../context/AuthContext";
 import { apiGet, apiPatch, apiPost } from "../../utils/apiClient";
 import { avatarCatalog } from "../../utils/avatarCatalog";
+import { toast } from "../../utils/toast";
 
 type ProfileSection =
   | "overview"
@@ -240,6 +242,7 @@ export function ProfilePanel({
   const [photoPreview, setPhotoPreview] = useState("");
   const [photoStatus, setPhotoStatus] = useState("");
   const [photoSaving, setPhotoSaving] = useState(false);
+  const [logoutPending, setLogoutPending] = useState(false);
   const [insights, setInsights] = useState<ProfileInsights>({
     tagline: buildTagline([], []),
     topGenres: [],
@@ -317,8 +320,10 @@ export function ProfilePanel({
         const [recommendationResponse, roomResponse] = await Promise.all([
           apiGet<ApiResponse<RecommendationPayload>>("/movies/recommendations", {
             username: user.username,
+          }, { silent: true }).catch(() => null),
+          apiGet<ApiResponse<RoomSummary[]>>("/rooms/mine", undefined, {
+            silent: true,
           }).catch(() => null),
-          apiGet<ApiResponse<RoomSummary[]>>("/rooms/mine").catch(() => null),
         ]);
 
         if (cancelled) {
@@ -367,6 +372,7 @@ export function ProfilePanel({
     }
 
     if (usernameValue.trim().toLowerCase() === user.username.toLowerCase()) {
+      toast.info("Choose a different username before saving.");
       setUsernameStatus("This handle is already active on your account.");
       return;
     }
@@ -381,6 +387,7 @@ export function ProfilePanel({
       setSessionUser(response.data.user);
       setUsernameValue(response.data.user.username);
       setUsernameStatus("Username updated successfully.");
+      toast.success("Username updated.");
     } catch (error) {
       setUsernameStatus(
         error instanceof Error ? error.message : "Username update failed.",
@@ -392,6 +399,11 @@ export function ProfilePanel({
 
   const handlePasswordSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    if (!passwordState.currentPassword.trim() || !passwordState.newPassword.trim()) {
+      toast.info("Enter your current and new password.");
+      return;
+    }
 
     setPasswordState((previous) => ({
       ...previous,
@@ -410,6 +422,7 @@ export function ProfilePanel({
         status: "Password updated successfully.",
         saving: false,
       });
+      toast.success("Password updated.");
     } catch (error) {
       setPasswordState((previous) => ({
         ...previous,
@@ -425,6 +438,7 @@ export function ProfilePanel({
     }
 
     if (selectedAvatar === user.avatar) {
+      toast.info("Pick a different avatar before saving.");
       setAvatarStatus("This avatar is already active.");
       return;
     }
@@ -438,6 +452,7 @@ export function ProfilePanel({
       });
       setSessionUser(response.data.user);
       setAvatarStatus("Avatar updated successfully.");
+      toast.success("Avatar updated.");
     } catch (error) {
       setAvatarStatus(error instanceof Error ? error.message : "Avatar update failed.");
     } finally {
@@ -449,6 +464,7 @@ export function ProfilePanel({
     event.preventDefault();
 
     if (!photoFile) {
+      toast.info("Choose a profile photo before saving.");
       setPhotoStatus("Choose an image first.");
       return;
     }
@@ -469,6 +485,7 @@ export function ProfilePanel({
       setPhotoFile(null);
       setPhotoPreview("");
       setPhotoStatus("Profile photo updated successfully.");
+      toast.success("Profile photo updated.");
     } catch (error) {
       setPhotoStatus(
         error instanceof Error ? error.message : "Profile photo update failed.",
@@ -480,6 +497,11 @@ export function ProfilePanel({
 
   const handleFeedbackSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    if (!feedbackState.message.trim()) {
+      toast.info("Add a short message before sending feedback.");
+      return;
+    }
 
     setFeedbackState((previous) => ({
       ...previous,
@@ -500,6 +522,7 @@ export function ProfilePanel({
         status: "Feedback submitted. Thank you.",
         saving: false,
       });
+      toast.success("Feedback sent.");
     } catch (error) {
       setFeedbackState((previous) => ({
         ...previous,
@@ -510,12 +533,19 @@ export function ProfilePanel({
   };
 
   const handleLogout = async () => {
-    await apiGet("/users/logout").catch(() => null);
-    setSessionUser(null);
-    onClose();
-    startTransition(() => {
-      void navigate("/login");
-    });
+    setLogoutPending(true);
+
+    try {
+      await apiGet("/users/logout", undefined, { silent: true }).catch(() => null);
+      setSessionUser(null);
+      toast.success("Logged out.");
+      onClose();
+      startTransition(() => {
+        void navigate("/login");
+      });
+    } finally {
+      setLogoutPending(false);
+    }
   };
 
   if (!user) {
@@ -820,8 +850,9 @@ export function ProfilePanel({
                           </p>
                           <button
                             disabled={usernameSaving || !usernameValue.trim()}
-                            className="rounded-full bg-primary px-6 py-3 text-[10px] font-black uppercase tracking-[0.35em] text-primary-foreground disabled:opacity-60"
+                            className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-[10px] font-black uppercase tracking-[0.35em] text-primary-foreground disabled:opacity-60"
                           >
+                            {usernameSaving && <LoadingSpinner className="h-3.5 w-3.5" />}
                             {usernameSaving ? "Saving..." : "Save Username"}
                           </button>
                           {usernameStatus && (
@@ -868,8 +899,11 @@ export function ProfilePanel({
                               !passwordState.currentPassword.trim() ||
                               !passwordState.newPassword.trim()
                             }
-                            className="rounded-full bg-primary px-6 py-3 text-[10px] font-black uppercase tracking-[0.35em] text-primary-foreground disabled:opacity-60"
+                            className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-[10px] font-black uppercase tracking-[0.35em] text-primary-foreground disabled:opacity-60"
                           >
+                            {passwordState.saving && (
+                              <LoadingSpinner className="h-3.5 w-3.5" />
+                            )}
                             {passwordState.saving ? "Updating..." : "Save Password"}
                           </button>
                           {passwordState.status && (
@@ -923,8 +957,9 @@ export function ProfilePanel({
                             <button
                               onClick={handleAvatarSave}
                               disabled={avatarSaving || !selectedAvatar}
-                              className="rounded-full bg-primary px-6 py-3 text-[10px] font-black uppercase tracking-[0.35em] text-primary-foreground disabled:opacity-60"
+                              className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-[10px] font-black uppercase tracking-[0.35em] text-primary-foreground disabled:opacity-60"
                             >
+                              {avatarSaving && <LoadingSpinner className="h-3.5 w-3.5" />}
                               {avatarSaving ? "Saving..." : "Save Avatar"}
                             </button>
                             {avatarStatus && (
@@ -980,8 +1015,9 @@ export function ProfilePanel({
                               </p>
                               <button
                                 disabled={photoSaving || !photoFile}
-                                className="mt-6 rounded-full bg-primary px-6 py-3 text-[10px] font-black uppercase tracking-[0.35em] text-primary-foreground disabled:opacity-60"
+                                className="mt-6 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-[10px] font-black uppercase tracking-[0.35em] text-primary-foreground disabled:opacity-60"
                               >
+                                {photoSaving && <LoadingSpinner className="h-3.5 w-3.5" />}
                                 {photoSaving ? "Uploading..." : "Save Profile Photo"}
                               </button>
                               {photoStatus && (
@@ -1029,8 +1065,11 @@ export function ProfilePanel({
                           />
                           <button
                             disabled={feedbackState.saving || !feedbackState.message.trim()}
-                            className="rounded-full bg-primary px-6 py-3 text-[10px] font-black uppercase tracking-[0.35em] text-primary-foreground disabled:opacity-60"
+                            className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-[10px] font-black uppercase tracking-[0.35em] text-primary-foreground disabled:opacity-60"
                           >
+                            {feedbackState.saving && (
+                              <LoadingSpinner className="h-3.5 w-3.5" />
+                            )}
                             {feedbackState.saving ? "Sending..." : "Send Feedback"}
                           </button>
                           {feedbackState.status && (
@@ -1056,9 +1095,11 @@ export function ProfilePanel({
                           </p>
                           <button
                             onClick={handleLogout}
-                            className="mt-6 rounded-full border border-primary/25 bg-primary/10 px-6 py-3 text-[10px] font-black uppercase tracking-[0.35em] text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
+                            disabled={logoutPending}
+                            className="mt-6 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-6 py-3 text-[10px] font-black uppercase tracking-[0.35em] text-primary transition-colors hover:bg-primary hover:text-primary-foreground disabled:opacity-60"
                           >
-                            Logout
+                            {logoutPending && <LoadingSpinner className="h-3.5 w-3.5" />}
+                            {logoutPending ? "Logging Out" : "Logout"}
                           </button>
                         </div>
                       )}

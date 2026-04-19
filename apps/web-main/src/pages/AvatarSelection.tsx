@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { LoadingSpinner } from "@repo/ui/components/loading-spinner";
 import { apiPatch } from "../utils/apiClient";
 import { useAuth } from "../context/AuthContext";
 import { avatarCatalog } from "../utils/avatarCatalog";
+import { toast } from "../utils/toast";
 
 type AvatarResponse = {
   statusCode: number;
@@ -30,7 +32,10 @@ export default function AvatarSelection() {
   const { user, setSessionUser } = useAuth();
 
   const handleSave = async () => {
-    if (!selected) return;
+    if (!selected) {
+      toast.info("Choose an avatar before entering the metaverse.");
+      return;
+    }
 
     setSaving(true);
     setStatus("");
@@ -40,9 +45,10 @@ export default function AvatarSelection() {
         avatar: selected,
       });
       setSessionUser(response.data.user);
+      toast.success("Avatar updated.");
       navigate("/home");
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Avatar save failed.");
+    } catch {
+      setStatus("");
     } finally {
       setSaving(false);
     }
@@ -94,8 +100,9 @@ export default function AvatarSelection() {
           <button
             onClick={handleSave}
             disabled={!selected || saving}
-            className="rounded-full bg-primary px-8 py-4 text-primary-foreground text-[10px] font-black uppercase tracking-[0.35em] disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-8 py-4 text-primary-foreground text-[10px] font-black uppercase tracking-[0.35em] disabled:opacity-60"
           >
+            {saving && <LoadingSpinner className="h-3.5 w-3.5" />}
             {saving ? "Saving..." : "Enter Metaverse"}
           </button>
           {status && <div className="text-sm text-amber-200">{status}</div>}

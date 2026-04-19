@@ -106,10 +106,14 @@ export function AppShellProvider({ children }: { children: ReactNode }) {
       }
 
       closeCommandPalette();
-      apiPost("/movies/whenclicked", {
-        username: user.username,
-        movie: movieId,
-      }).catch(() => {});
+      apiPost(
+        "/movies/whenclicked",
+        {
+          username: user.username,
+          movie: movieId,
+        },
+        { silent: true },
+      ).catch(() => {});
       startTransition(() => {
         void navigate(`/movies/${movieId}`);
       });
@@ -130,9 +134,13 @@ export function AppShellProvider({ children }: { children: ReactNode }) {
       setSearching(true);
 
       try {
-        const response = await apiGet<ApiResponse<SearchMovie[]>>("/movies/search", {
-          query,
-        });
+        const response = await apiGet<ApiResponse<SearchMovie[]>>(
+          "/movies/search",
+          {
+            query,
+          },
+          { silent: true },
+        );
 
         if (!cancelled) {
           setMovieResults(response.data.slice(0, 8));

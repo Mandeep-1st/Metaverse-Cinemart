@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { LoadingSpinner } from "@repo/ui/components/loading-spinner";
 
 declare global {
   interface Window {
@@ -74,6 +75,15 @@ export default function GoogleSignInButton({
     return (
       <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
         Add `VITE_GOOGLE_CLIENT_ID` to enable Google sign-in.
+      </div>
+    );
+  }
+
+  if (disabled) {
+    return (
+      <div className="flex min-h-[44px] w-full max-w-[320px] items-center justify-center gap-2 rounded-full border border-border/20 bg-card/20 px-4 py-3 text-[10px] font-black uppercase tracking-[0.32em] text-muted-foreground">
+        <LoadingSpinner className="h-3.5 w-3.5" />
+        Processing
       </div>
     );
   }

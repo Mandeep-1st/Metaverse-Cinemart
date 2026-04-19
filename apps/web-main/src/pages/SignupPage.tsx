@@ -13,6 +13,8 @@ import {
 import GoogleSignInButton from "../components/auth/GoogleSignInButton";
 import { useAuth } from "../context/AuthContext";
 import { apiPost } from "../utils/apiClient";
+import { toast } from "../utils/toast";
+import { LoadingSpinner } from "@repo/ui/components/loading-spinner";
 
 type RegisterResponse = {
   statusCode: number;
@@ -63,7 +65,6 @@ export default function SignupPage() {
   const [otp, setOtp] = useState("");
   const [pendingUsername, setPendingUsername] = useState("");
   const [step, setStep] = useState<"signup" | "verify">("signup");
-  const [status, setStatus] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const completeLogin = useCallback(
@@ -76,21 +77,34 @@ export default function SignupPage() {
 
   const handleSignup = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    if (
+      !fullName.trim() ||
+      !username.trim() ||
+      !email.trim() ||
+      !password.trim()
+    ) {
+      toast.info("Complete all signup fields before continuing.");
+      return;
+    }
+
     setSubmitting(true);
-    setStatus("");
 
     try {
       const response = await apiPost<RegisterResponse>("/users/register", {
-        fullName,
-        username,
-        email,
+        fullName: fullName.trim(),
+        username: username.trim(),
+        email: email.trim(),
         password,
       });
       setPendingUsername(response.data.user.username);
       setStep("verify");
-      setStatus("Account created. Enter the OTP from your email to continue.");
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Signup failed.");
+      toast.success(
+        "Account created.",
+        "Enter the OTP from your email to continue.",
+      );
+    } catch {
+      return;
     } finally {
       setSubmitting(false);
     }
@@ -98,17 +112,23 @@ export default function SignupPage() {
 
   const handleVerify = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    if (!otp.trim()) {
+      toast.info("Enter the OTP code from your email.");
+      return;
+    }
+
     setSubmitting(true);
-    setStatus("");
 
     try {
       const response = await apiPost<VerifyResponse>("/users/verifyotp", {
         username: pendingUsername,
-        otpReceived: otp,
+        otpReceived: otp.trim(),
       });
+      toast.success("Account verified.");
       completeLogin(response);
     } catch (error) {
-      setStatus(
+      toast.error(
         error instanceof Error ? error.message : "OTP verification failed.",
       );
     } finally {
@@ -117,18 +137,20 @@ export default function SignupPage() {
   };
 
   const handleResendOtp = async () => {
-    if (!pendingUsername) return;
+    if (!pendingUsername) {
+      toast.info("Finish signup first so we know where to send the OTP.");
+      return;
+    }
 
     setSubmitting(true);
-    setStatus("");
 
     try {
       await apiPost("/users/requestotp", {
         emailOrUsername: pendingUsername,
       });
-      setStatus("A fresh OTP was sent.");
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "OTP resend failed.");
+      toast.success("A fresh OTP was sent.");
+    } catch {
+      return;
     } finally {
       setSubmitting(false);
     }
@@ -136,7 +158,6 @@ export default function SignupPage() {
 
   const handleGoogleLogin = async (credential: string) => {
     setSubmitting(true);
-    setStatus("");
 
     try {
       const response = await apiPost<VerifyResponse>("/users/google", {
@@ -144,7 +165,7 @@ export default function SignupPage() {
       });
       completeLogin(response);
     } catch (error) {
-      setStatus(
+      toast.error(
         error instanceof Error ? error.message : "Google signup failed.",
       );
     } finally {
@@ -294,8 +315,17 @@ export default function SignupPage() {
                 whileTap={{ scale: 0.98 }}
                 className="mt-4 sm:mt-6 md:mt-10 w-full bg-foreground text-background py-4 sm:py-5 md:py-6 rounded-xl font-black uppercase text-[10px] sm:text-[11px] tracking-widest flex items-center justify-center gap-2 sm:gap-3 transition-all disabled:opacity-60"
               >
-                Sign Up
-                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                {submitting ? (
+                  <>
+                    <LoadingSpinner className="h-3.5 w-3.5" />
+                    Creating Account
+                  </>
+                ) : (
+                  <>
+                    Sign Up
+                    <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </>
+                )}
               </motion.button>
             </form>
           ) : (
@@ -329,14 +359,25 @@ export default function SignupPage() {
                 whileTap={{ scale: 0.98 }}
                 className="w-full bg-foreground text-background py-4 sm:py-5 md:py-6 rounded-xl font-black uppercase text-[10px] sm:text-[11px] tracking-widest flex items-center justify-center gap-2 sm:gap-3 transition-all disabled:opacity-60"
               >
-                Verify OTP
-                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                {submitting ? (
+                  <>
+                    <LoadingSpinner className="h-3.5 w-3.5" />
+                    Verifying
+                  </>
+                ) : (
+                  <>
+                    Verify OTP
+                    <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </>
+                )}
               </motion.button>
               <button
                 type="button"
                 onClick={handleResendOtp}
-                className="text-sm text-primary text-left"
+                disabled={submitting}
+                className="inline-flex items-center gap-2 text-sm text-primary text-left disabled:opacity-60"
               >
+                {submitting && <LoadingSpinner className="h-3.5 w-3.5" />}
                 Resend OTP
               </button>
             </form>
@@ -350,9 +391,6 @@ export default function SignupPage() {
               />
             </div>
           )}
-
-          {status && <p className="mt-6 text-sm text-amber-200">{status}</p>}
-
           <p className="mt-8 sm:mt-12 text-center text-muted-foreground text-[9px] sm:text-[10px] font-black uppercase tracking-widest">
             System Access?{" "}
             <span

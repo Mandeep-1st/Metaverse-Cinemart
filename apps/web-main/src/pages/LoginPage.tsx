@@ -13,6 +13,8 @@ import {
 import GoogleSignInButton from "../components/auth/GoogleSignInButton";
 import { useAuth } from "../context/AuthContext";
 import { apiPost } from "../utils/apiClient";
+import { toast } from "../utils/toast";
+import { LoadingSpinner } from "@repo/ui/components/loading-spinner";
 
 type AuthResponse = {
   statusCode: number;
@@ -39,7 +41,6 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [emailOrUsername, setEmailOrUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [status, setStatus] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const shadowNone = "0px 0px 0px 0px hsl(0 100% 65% / 0)";
@@ -59,17 +60,22 @@ export default function LoginPage() {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    if (!emailOrUsername.trim() || !password.trim()) {
+      toast.info("Enter your email or username and password.");
+      return;
+    }
+
     setSubmitting(true);
-    setStatus("");
 
     try {
       const response = await apiPost<AuthResponse>("/users/signin", {
-        emailOrUsername,
+        emailOrUsername: emailOrUsername.trim(),
         password,
       });
       completeLogin(response);
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Login failed.");
+    } catch {
+      return;
     } finally {
       setSubmitting(false);
     }
@@ -77,7 +83,6 @@ export default function LoginPage() {
 
   const handleGoogleLogin = async (credential: string) => {
     setSubmitting(true);
-    setStatus("");
 
     try {
       const response = await apiPost<AuthResponse>("/users/google", {
@@ -85,7 +90,7 @@ export default function LoginPage() {
       });
       completeLogin(response);
     } catch (error) {
-      setStatus(
+      toast.error(
         error instanceof Error ? error.message : "Google login failed.",
       );
     } finally {
@@ -212,8 +217,17 @@ export default function LoginPage() {
               whileTap={{ scale: 0.98 }}
               className="mt-4 w-full bg-foreground text-background py-6 md:py-7 rounded-2xl md:rounded-3xl font-black uppercase text-[11px] md:text-[12px] tracking-widest flex items-center justify-center gap-4 transition-all group disabled:opacity-60"
             >
-              Login{" "}
-              <ChevronRight className="w-6 h-6 group-hover:translate-x-2 transition-transform" />
+              {submitting ? (
+                <>
+                  <LoadingSpinner className="h-4 w-4" />
+                  Logging In
+                </>
+              ) : (
+                <>
+                  Login
+                  <ChevronRight className="w-6 h-6 group-hover:translate-x-2 transition-transform" />
+                </>
+              )}
             </motion.button>
           </form>
 
@@ -223,10 +237,6 @@ export default function LoginPage() {
               onCredential={handleGoogleLogin}
             />
           </div>
-
-          {status && (
-            <p className="mt-6 text-sm text-amber-200 max-w-md">{status}</p>
-          )}
 
           <p className="mt-14 text-center text-muted-foreground text-[10px] font-black uppercase tracking-widest">
             Unrecognized ID?{" "}

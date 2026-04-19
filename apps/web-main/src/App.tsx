@@ -23,6 +23,7 @@ import RoomsPage from "./pages/RoomsPage";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { AppShellProvider } from "./context/AppShellContext";
 import LoadingScreen from "./components/common/LoadingScreen";
+import { ToastViewport } from "./components/common/ToastViewport";
 
 function ProtectedRoutes() {
   const { user, loading, hasSelectedAvatar } = useAuth();
@@ -118,6 +119,7 @@ export default function App() {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        <ToastViewport />
       </BrowserRouter>
     </AuthProvider>
   );

@@ -1,6 +1,7 @@
 import { MessageSquareMore, SendHorizontal } from "lucide-react";
 import { cn } from "../lib/utils";
 import { CinemaAvatar } from "./cinema-avatar";
+import { LoadingSpinner } from "./loading-spinner";
 
 type CommentUser = {
   username: string;
@@ -130,7 +131,11 @@ export function PersistentCommentsPanel({
                 disabled={composerDisabled || submitting || !input.trim()}
                 className="inline-flex items-center gap-2 rounded-full bg-[#f4b63d] px-5 py-3 text-[10px] font-black uppercase tracking-[0.35em] text-black disabled:opacity-50"
               >
-                <SendHorizontal className="h-4 w-4" />
+                {submitting ? (
+                  <LoadingSpinner className="h-3.5 w-3.5" />
+                ) : (
+                  <SendHorizontal className="h-4 w-4" />
+                )}
                 {submitting ? "Posting..." : "Post Comment"}
               </button>
             </div>

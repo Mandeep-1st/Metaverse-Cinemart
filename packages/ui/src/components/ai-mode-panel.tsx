@@ -1,6 +1,7 @@
 import * as React from "react";
 import { BrainCircuit, Clapperboard, Sparkles, WandSparkles } from "lucide-react";
 import { cn } from "../lib/utils";
+import { LoadingSpinner } from "./loading-spinner";
 
 export type AiModeId = "suggest" | "context" | "chat";
 
@@ -242,8 +243,9 @@ export function AiModePanel({
             <button
               onClick={onSubmit}
               disabled={!selectedMode || loading || !input.trim()}
-              className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-[#f4b63d] px-5 py-3 text-[10px] font-black uppercase tracking-[0.35em] text-black disabled:opacity-50"
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#f4b63d] px-5 py-3 text-[10px] font-black uppercase tracking-[0.35em] text-black disabled:opacity-50"
             >
+              {loading && <LoadingSpinner className="h-3.5 w-3.5" />}
               {loading ? "Thinking..." : "Send to AI"}
             </button>
 
