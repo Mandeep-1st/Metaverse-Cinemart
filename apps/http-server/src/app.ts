@@ -40,5 +40,7 @@ app.use("/api/v1/movies", movieRouter)
 app.use("/api/v1/ai", aiRouter);
 app.use("/api/v1/rooms", roomRouter);
 
+
+
 app.use(globalErrorHandler);
 export { app };

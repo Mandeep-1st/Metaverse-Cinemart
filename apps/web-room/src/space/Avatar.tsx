@@ -54,12 +54,11 @@ function AvatarFallback({
     if (!groupRef.current || !glowRef.current) return;
 
     const idle = Math.sin(clock.getElapsedTime() * 1.8);
-    groupRef.current.position.y =
-      THREE.MathUtils.lerp(
-        groupRef.current.position.y,
-        position[1] + idle * 0.025,
-        1 - Math.exp(-delta * 6),
-      );
+    groupRef.current.position.y = THREE.MathUtils.lerp(
+      groupRef.current.position.y,
+      position[1] + idle * 0.025,
+      1 - Math.exp(-delta * 6),
+    );
 
     const targetGlow = loading ? 1.8 : 0.9;
     glowRef.current.emissiveIntensity = THREE.MathUtils.lerp(
@@ -185,11 +184,7 @@ export function RoomAvatar({ avatarId, position, yaw }: RoomAvatarProps) {
     <AvatarErrorBoundary
       resetKey={`${avatarId || "default"}:${config.url}`}
       fallback={
-        <AvatarFallback
-          avatarId={avatarId}
-          position={position}
-          yaw={yaw}
-        />
+        <AvatarFallback avatarId={avatarId} position={position} yaw={yaw} />
       }
     >
       <Suspense

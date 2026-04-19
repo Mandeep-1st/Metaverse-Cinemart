@@ -29,14 +29,7 @@ type PersistentCommentsPanelProps = {
   placeholder?: string;
   emptyMessage?: string;
   className?: string;
-<<<<<<< HEAD
-<<<<<<< HEAD
   commentsClassName?: string;
-=======
->>>>>>> 6061ee5 (That's some optmisation)
-=======
-  commentsClassName?: string;
->>>>>>> 7155281 (Adding some more shitee)
   composerDisabled?: boolean;
 };
 
@@ -67,14 +60,7 @@ export function PersistentCommentsPanel({
   placeholder = "Share your thoughts about the movie...",
   emptyMessage = "No comments yet. Start the discussion.",
   className,
-<<<<<<< HEAD
-<<<<<<< HEAD
   commentsClassName,
-=======
->>>>>>> 6061ee5 (That's some optmisation)
-=======
-  commentsClassName,
->>>>>>> 7155281 (Adding some more shitee)
   composerDisabled = false,
 }: PersistentCommentsPanelProps) {
   return (
@@ -90,7 +76,9 @@ export function PersistentCommentsPanel({
             <MessageSquareMore className="h-3.5 w-3.5" />
             Persistent Comments
           </div>
-          <h3 className="mt-3 text-2xl font-black italic text-white">{title}</h3>
+          <h3 className="mt-3 text-2xl font-black italic text-white">
+            {title}
+          </h3>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-white/60">
             {subtitle}
           </p>
@@ -115,15 +103,7 @@ export function PersistentCommentsPanel({
               placeholder={placeholder}
               rows={4}
               disabled={composerDisabled || submitting}
-<<<<<<< HEAD
-<<<<<<< HEAD
               className="w-full resize-none rounded-[24px] border border-white/10 bg-black/25 px-4 py-4 text-sm leading-7 text-white outline-none placeholder:text-white/35"
-=======
-              className="w-full resize-none rounded-[24px] border border-white/10 bg-black/25 px-4 py-4 text-sm text-white outline-none placeholder:text-white/35"
->>>>>>> 6061ee5 (That's some optmisation)
-=======
-              className="w-full resize-none rounded-[24px] border border-white/10 bg-black/25 px-4 py-4 text-sm leading-7 text-white outline-none placeholder:text-white/35"
->>>>>>> 7155281 (Adding some more shitee)
             />
             <div className="mt-4 flex justify-end">
               <button
@@ -143,18 +123,14 @@ export function PersistentCommentsPanel({
         </div>
       </div>
 
-<<<<<<< HEAD
-<<<<<<< HEAD
       <div className={cn("mt-6 grid gap-4", commentsClassName)}>
-=======
-      <div className="mt-6 grid gap-4">
->>>>>>> 6061ee5 (That's some optmisation)
-=======
-      <div className={cn("mt-6 grid gap-4", commentsClassName)}>
->>>>>>> 7155281 (Adding some more shitee)
         {comments.map((comment) => (
           <div
-            key={comment._id || comment.id || `${comment.username}-${comment.createdAt}`}
+            key={
+              comment._id ||
+              comment.id ||
+              `${comment.username}-${comment.createdAt}`
+            }
             className="rounded-[28px] border border-white/10 bg-white/5 p-5"
           >
             <div className="flex items-start gap-3">
@@ -167,21 +143,9 @@ export function PersistentCommentsPanel({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-<<<<<<< HEAD
-<<<<<<< HEAD
-                  <div className="font-black text-white break-words">
-                    {comment.fullName || comment.username}
-                  </div>
-=======
-                    <div className="font-black text-white">
+                    <div className="font-black text-white break-words">
                       {comment.fullName || comment.username}
                     </div>
->>>>>>> 6061ee5 (That's some optmisation)
-=======
-                  <div className="font-black text-white break-words">
-                    {comment.fullName || comment.username}
-                  </div>
->>>>>>> 7155281 (Adding some more shitee)
                     <div className="text-xs uppercase tracking-[0.28em] text-white/40">
                       @{comment.username}
                     </div>
@@ -190,15 +154,7 @@ export function PersistentCommentsPanel({
                     {formatTimestamp(comment.createdAt)}
                   </div>
                 </div>
-<<<<<<< HEAD
-<<<<<<< HEAD
                 <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-white/70">
-=======
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-white/70">
->>>>>>> 6061ee5 (That's some optmisation)
-=======
-                <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-white/70">
->>>>>>> 7155281 (Adding some more shitee)
                   {comment.text}
                 </p>
               </div>

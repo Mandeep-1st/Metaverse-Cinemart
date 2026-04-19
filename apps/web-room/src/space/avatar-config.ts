@@ -9,40 +9,62 @@ export type AvatarModelConfig = {
 };
 
 export const avatarModelMap: Record<string, AvatarModelConfig> = {
-  "neo-scout": {
-    url: "../../public/models/Adventurer.glb",
-    scale: 1.15,
+  "Adventurer": {
+    url: "/models/Adventurer.glb",
+    scale: 1,
     rotationY: Math.PI,
-    floorOffset: 0,
+    floorOffset: 0.1,
     fallbackColor: "#60a5fa",
   },
-  "quantum-noir": {
-    url: "../../public/models/Scifi.glb",
-    scale: 1.12,
+  "Astronaut": {
+    url: "/models/Astronaut.glb",
+    scale: 1,
     rotationY: Math.PI,
-    floorOffset: 0,
+    floorOffset: 0.1,
     fallbackColor: "#38bdf8",
   },
-  "signal-rider": {
-    url: "../../public/models/Witch.glb",
-    scale: 1.12,
+  "Witch": {
+    url: "/models/Witch.glb",
+    scale: 1,
     rotationY: Math.PI,
-    floorOffset: 0,
+    floorOffset: 0.1,
     fallbackColor: "#4ade80",
   },
-  "void-caster": {
-    url: "../../public/models/King.glb",
-    scale: 1.12,
+  "King": {
+    url: "/models/King.glb",
+    scale: 1,
     rotationY: Math.PI,
-    floorOffset: 0,
+    floorOffset: 0.1,
     fallbackColor: "#f472b6",
-  }
+  },
+  "Punk": {
+    url: "/models/Punk.glb",
+    scale: 1,
+    rotationY: Math.PI,
+    floorOffset: 0.1,
+    fallbackColor: "#fbbf24",
+  },
+  "Sci-fi": {
+    url: "/models/Scifi.glb",
+    scale: 1,
+    rotationY: Math.PI,
+    floorOffset: 0.1,
+    fallbackColor: "#a78bfa",
+  },
+  default: {
+    url: "/models/Hoodie.glb",
+    scale: 1,
+    rotationY: Math.PI,
+    floorOffset: 0.1,
+    fallbackColor: "#f87171",
+  },
 };
 
 const preloadedUrls = new Set<string>();
 
 export function getAvatarConfig(avatarId?: string | null) {
-  return avatarModelMap[avatarId || ""] || avatarModelMap.default;
+  const matchedConfig = avatarId ? avatarModelMap[avatarId] : undefined;
+  return matchedConfig || avatarModelMap.default;
 }
 
 export function preloadAvatarModel(avatarId?: string | null) {
