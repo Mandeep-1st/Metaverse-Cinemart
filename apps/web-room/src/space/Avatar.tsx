@@ -108,10 +108,58 @@ function AvatarFallback({
 function LoadedAvatar({ avatarId, position, yaw }: RoomAvatarProps) {
   const config = getAvatarConfig(avatarId);
   const rootRef = useRef<THREE.Group>(null);
+  const previousPositionRef = useRef(new THREE.Vector3(position[0], position[1], position[2]));
+  const previousYawRef = useRef(yaw);
+  const movementStateRef = useRef<"idle" | "forward" | "back" | "left" | "right">("idle");
+  const activeActionRef = useRef<THREE.AnimationAction | null>(null);
   const { scene, animations } = useGLTF(config.url);
   const clonedScene = useMemo(() => cloneSkeleton(scene), [scene]);
+  const modelOffset = useMemo(() => {
+    clonedScene.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(clonedScene);
+
+    if (box.isEmpty()) {
+      return new THREE.Vector3(0, 0, 0);
+    }
+
+    const center = new THREE.Vector3();
+    box.getCenter(center);
+
+    return new THREE.Vector3(-center.x, 0, -center.z);
+  }, [clonedScene]);
   const { actions } = useAnimations(animations, clonedScene);
   const hasAnimations = animations.length > 0;
+  const actionMap = useMemo(() => {
+    const entries = Object.entries(actions).filter((entry): entry is [string, THREE.AnimationAction] => Boolean(entry[1]));
+    const normalized = new Map<string, THREE.AnimationAction>();
+
+    entries.forEach(([name, action]) => {
+      normalized.set(name.toLowerCase(), action);
+    });
+
+    return normalized;
+  }, [actions]);
+
+  const resolveAction = useMemo(() => {
+    return (movementState: "idle" | "forward" | "back" | "left" | "right") => {
+      const candidatesByState: Record<typeof movementState, string[]> = {
+        idle: ["characterarmature|idle", "characterarmature|idle_neutral", "idle", "idle_neutral"],
+        forward: ["characterarmature|run", "run", "characterarmature|walk", "walk"],
+        back: ["characterarmature|run_back", "run_back"],
+        left: ["characterarmature|run_left", "run_left"],
+        right: ["characterarmature|run_right", "run_right"],
+      };
+
+      for (const candidate of candidatesByState[movementState]) {
+        const match = actionMap.get(candidate);
+        if (match) {
+          return match;
+        }
+      }
+
+      return null;
+    };
+  }, [actionMap]);
 
   useMemo(() => {
     clonedScene.traverse((child: THREE.Object3D) => {
@@ -131,21 +179,71 @@ function LoadedAvatar({ avatarId, position, yaw }: RoomAvatarProps) {
 
   useEffect(() => {
     if (!hasAnimations) return;
-    const nextAction = Object.values(actions).find(Boolean);
-    nextAction?.reset().fadeIn(0.35).play();
+    const idleAction = resolveAction("idle");
+    if (idleAction) {
+      idleAction.reset().fadeIn(0.25).play();
+      activeActionRef.current = idleAction;
+    }
 
     return () => {
       Object.values(actions).forEach((action) => action?.fadeOut(0.2));
     };
-  }, [actions, hasAnimations]);
+  }, [actions, hasAnimations, resolveAction]);
 
   useFrame(({ clock }, delta) => {
     if (!rootRef.current) return;
 
     if (hasAnimations) {
+      const currentPosition = new THREE.Vector3(position[0], position[1], position[2]);
+      const previousPosition = previousPositionRef.current;
+      const movementDelta = currentPosition.clone().sub(previousPosition);
+      const planarDistance = Math.hypot(movementDelta.x, movementDelta.z);
+      const movementThreshold = 0.0025;
+      let nextMovementState: "idle" | "forward" | "back" | "left" | "right" = "idle";
+
+      if (planarDistance > movementThreshold) {
+        const localDelta = movementDelta.clone().applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          -(previousYawRef.current + config.rotationY),
+        );
+
+        if (Math.abs(localDelta.x) > Math.abs(localDelta.z)) {
+          nextMovementState = localDelta.x > 0 ? "right" : "left";
+        } else {
+          nextMovementState = localDelta.z > 0 ? "back" : "forward";
+        }
+      }
+
+      if (movementStateRef.current !== nextMovementState) {
+        const nextAction = resolveAction(nextMovementState) || resolveAction("idle");
+        if (nextAction && nextAction !== activeActionRef.current) {
+          activeActionRef.current?.fadeOut(0.18);
+          nextAction.reset().fadeIn(0.18).play();
+          activeActionRef.current = nextAction;
+        }
+        movementStateRef.current = nextMovementState;
+      }
+
+      previousPositionRef.current.copy(currentPosition);
+      previousYawRef.current = yaw;
       rootRef.current.position.y = THREE.MathUtils.lerp(
         rootRef.current.position.y,
         position[1] + config.floorOffset,
+        1 - Math.exp(-delta * 10),
+      );
+      rootRef.current.position.x = THREE.MathUtils.lerp(
+        rootRef.current.position.x,
+        position[0],
+        1 - Math.exp(-delta * 10),
+      );
+      rootRef.current.position.z = THREE.MathUtils.lerp(
+        rootRef.current.position.z,
+        position[2],
+        1 - Math.exp(-delta * 10),
+      );
+      rootRef.current.rotation.y = THREE.MathUtils.lerp(
+        rootRef.current.rotation.y,
+        yaw + config.rotationY,
         1 - Math.exp(-delta * 10),
       );
       return;
@@ -168,7 +266,7 @@ function LoadedAvatar({ avatarId, position, yaw }: RoomAvatarProps) {
       rotation={[0, yaw + config.rotationY, 0]}
       scale={config.scale}
     >
-      <primitive object={clonedScene} />
+      <primitive object={clonedScene} position={modelOffset} />
     </group>
   );
 }
