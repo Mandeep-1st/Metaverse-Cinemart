@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { PointerLockControls } from "@react-three/drei";
 import { TheatreRoom } from "../components/TheatreRoom";
@@ -16,8 +16,11 @@ import {
   Cupboards,
   AIDoor,
 } from "../components/TheatreProps";
+import { AiModePanel, type AiModeId } from "@repo/ui/components/ai-mode-panel";
+import { MovieRichDetails } from "@repo/ui/components/movie-rich-details";
+import { PersistentCommentsPanel } from "@repo/ui/components/persistent-comments-panel";
 import { SocketProvider, useSocket } from "../context/SocketProvider";
-import { apiGet } from "../utils/apiClient";
+import { apiGet, apiPost } from "../utils/apiClient";
 import type {
   Consumer,
   Device,
@@ -27,6 +30,16 @@ import type {
 } from "mediasoup-client/types";
 import * as mediasoupClient from "mediasoup-client";
 import { useSearchParams } from "react-router-dom";
+import { CinemaScene } from "../space/Scene";
+import {
+  GRID_HALF,
+  PLAYER_Y,
+  ZONE_DISTANCE,
+  clamp,
+  isInsideAnyCollider,
+  isTypingElement,
+} from "../space/constants";
+import type { GuestPresence } from "../space/types";
 
 type ApiResponse<T> = {
   statusCode: number;
@@ -38,19 +51,6 @@ type ApiResponse<T> = {
 // ─── Add this constant OUTSIDE the component (top of file) ───
 // Each zone is a rectangle the player cannot enter.
 // Values are XZ bounds in world space. Tune the inset (10.5) if needed.
-const COLLISION_RECTS = [
-  { label: "north-tv", minX: -13, maxX: 13, minZ: -13, maxZ: -10.5 },
-  { label: "south-door", minX: -2.5, maxX: 2.5, minZ: 10.5, maxZ: 13 },
-  { label: "west-chairs", minX: -13, maxX: -10.5, minZ: -4, maxZ: 4 },
-  { label: "east-cupbds", minX: 10.5, maxX: 13, minZ: -4, maxZ: 4 },
-];
-
-function isInsideAnyCollider(x: number, z: number) {
-  return COLLISION_RECTS.some(
-    (r) => x > r.minX && x < r.maxX && z > r.minZ && z < r.maxZ,
-  );
-}
-
 type MovieDetails = {
   tmdb_id: number;
   title: string;
@@ -60,49 +60,141 @@ type MovieDetails = {
     backdrop?: string | null;
     logo?: string | null;
   };
-  video?: { url: string; key: string; site: string };
+  video?: {
+    url: string;
+    key: string;
+    site: string;
+    embedUrl?: string;
+    name?: string;
+    type?: string;
+    official?: boolean;
+    published_at?: string;
+  };
+  videos?: Array<{
+    url: string;
+    key: string;
+    site: string;
+    embedUrl?: string;
+    name?: string;
+    type?: string;
+    official?: boolean;
+    published_at?: string;
+  }>;
   genres?: Array<{ id?: number; name?: string }> | Array<any>;
+  credits?: {
+    cast?: Array<{
+      id?: number;
+      name?: string;
+      character?: string;
+      profile_path?: string | null;
+      order?: number;
+    }>;
+    crew?: Array<{
+      id?: number;
+      name?: string;
+      job?: string;
+      profile_path?: string | null;
+    }>;
+  };
+  details?: {
+    release_date?: string;
+    runtime?: number;
+  };
+  metrics?: {
+    vote_average?: number;
+  };
 };
+
+type MovieVideo = NonNullable<MovieDetails["videos"]>[number];
 
 type Mode = "solo" | "watchparty" | "create-room";
 type ZoneId = "north" | "west" | "east" | "south";
 type OverlayId = "trailer" | "comments" | "info" | "ai" | null;
+type ViewerUser = {
+  _id: string;
+  fullName: string;
+  username: string;
+  email: string;
+  avatar?: string;
+  profilePhoto?: string;
+};
 
-const GRID_HALF = 13; // floor roughly spans -13..13
-const PLAYER_Y = 1.6;
-const ZONE_DISTANCE = 4.5;
+type MovieComment = {
+  _id: string;
+  username: string;
+  fullName: string;
+  avatar?: string;
+  profilePhoto?: string;
+  text: string;
+  createdAt: string;
+};
 
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n));
-}
+type RoomCreationPayload = {
+  room: {
+    roomId: string;
+    movieTmdbId: number;
+    aiMode: boolean;
+  };
+  shareLink: string;
+};
 
-function isTypingElement(target: EventTarget | null) {
-  if (!target || !(target instanceof HTMLElement)) return false;
-  const tag = target.tagName.toLowerCase();
-  return (
-    tag === "input" ||
-    tag === "textarea" ||
-    tag === "select" ||
-    target.isContentEditable
-  );
-}
+type SearchMovieResult = {
+  tmdb_id: number;
+  title: string;
+  overview?: string;
+  images?: {
+    poster?: string | null;
+  };
+  metrics?: {
+    vote_average?: number;
+  };
+};
 
-function toYouTubeEmbedSrc(videoUrl: string, origin: string) {
-  return `${videoUrl}?autoplay=1&mute=0&controls=1&enablejsapi=1${
-    origin ? `&origin=${encodeURIComponent(origin)}` : ""
-  }`;
-}
+const DEFAULT_WEB_MAIN_URL = "http://localhost:5173";
 
 function toYouTubeEmbed(urlOrKey: string) {
-  // Backend returns `https://www.youtube.com/watch?v=KEY`
   if (urlOrKey.startsWith("http")) {
     const u = new URL(urlOrKey);
-    const v = u.searchParams.get("v");
-    if (v) return `https://www.youtube.com/embed/${v}`;
-    // fallback: return as-is
+
+    if (u.hostname.includes("youtube.com")) {
+      if (u.pathname.includes("/embed/")) {
+        return urlOrKey;
+      }
+
+      const v = u.searchParams.get("v");
+      if (v) return `https://www.youtube.com/embed/${v}`;
+    }
+
+    if (u.hostname.includes("youtu.be")) {
+      return `https://www.youtube.com/embed/${u.pathname.replace("/", "")}`;
+    }
+
+    if (u.hostname.includes("player.vimeo.com")) {
+      return urlOrKey;
+    }
+
+    if (u.hostname.includes("vimeo.com")) {
+      return `https://player.vimeo.com/video/${u.pathname.replace("/", "")}`;
+    }
+
     return urlOrKey;
   }
+
   return `https://www.youtube.com/embed/${urlOrKey}`;
+}
+
+function toEmbeddableVideoUrl(
+  video?: {
+    url?: string;
+    key?: string;
+    embedUrl?: string;
+  } | null,
+) {
+  if (!video) return "";
+  if (video.embedUrl) return video.embedUrl;
+  if (video.url) return toYouTubeEmbed(video.url);
+  if (video.key) return toYouTubeEmbed(video.key);
+  return "";
 }
 
 // ---------------------------------------------------------------------------
@@ -176,6 +268,41 @@ function useMovieDetails(movieId: number | null) {
   return { movie, status } as const;
 }
 
+function mapMovieToRichDetails(movie: MovieDetails) {
+  const actors = (movie.credits?.cast || [])
+    .slice()
+    .sort((left, right) => (left.order || 0) - (right.order || 0))
+    .slice(0, 5)
+    .map((actor) => ({
+      id: actor.id,
+      name: actor.name || "Unknown Actor",
+      subtitle: actor.character || "Cast",
+      image: actor.profile_path,
+    }));
+
+  const directorEntry = (movie.credits?.crew || []).find(
+    (crewMember) => crewMember.job === "Director",
+  );
+
+  return {
+    actors,
+    director: directorEntry
+      ? {
+          id: directorEntry.id,
+          name: directorEntry.name || "Unknown Director",
+          subtitle: "Director",
+          image: directorEntry.profile_path,
+        }
+      : null,
+    genres: (movie.genres || [])
+      .map((genre: any) => genre?.name)
+      .filter(Boolean),
+    releaseDate: movie.details?.release_date,
+    runtime: movie.details?.runtime,
+    rating: movie.metrics?.vote_average,
+  };
+}
+
 function RemoteVideo({ stream }: { stream: MediaStream }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   useEffect(() => {
@@ -246,8 +373,8 @@ function OverlayShell({
 }) {
   return (
     <div className="absolute inset-0 z-[220] flex items-center justify-center bg-black/70 p-6">
-      <div className="w-full max-w-4xl rounded-[var(--radius)] bg-background/90 border border-border/20 p-5 shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between mb-4">
+      <div className="w-full max-w-4xl max-h-[90vh] rounded-[var(--radius)] bg-card-foreground border border-border/20 p-5 shadow-2xl overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between mb-4 flex-shrink-0">
           <div className="font-black uppercase tracking-widest text-primary text-sm">
             {title}
           </div>
@@ -258,7 +385,9 @@ function OverlayShell({
             Close
           </button>
         </div>
-        {children}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden pr-2">
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -267,26 +396,111 @@ function OverlayShell({
 function TrailerModal({
   videoUrl,
   onClose,
+  playing,
+  syncedTime,
+  watchparty,
 }: {
   videoUrl: string;
   onClose: () => void;
+  playing: boolean;
+  syncedTime: number;
+  watchparty: boolean;
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [paused, setPaused] = useState(false);
+  const [localPlaying, setLocalPlaying] = useState(playing);
+  const [localTime, setLocalTime] = useState(syncedTime);
+  const paused = !localPlaying;
 
-  const togglePause = () => {
+  useEffect(() => {
+    setLocalPlaying(playing);
+  }, [playing]);
+
+  useEffect(() => {
+    setLocalTime(syncedTime);
+  }, [syncedTime]);
+
+  useEffect(() => {
     const cw = iframeRef.current?.contentWindow;
     if (!cw) return;
-    const next = !paused;
+
     cw.postMessage(
       JSON.stringify({
         event: "command",
-        func: next ? "pauseVideo" : "playVideo",
+        func: "seekTo",
+        args: [Math.max(0, syncedTime), true],
+      }),
+      "*",
+    );
+
+    cw.postMessage(
+      JSON.stringify({
+        event: "command",
+        func: playing ? "playVideo" : "pauseVideo",
         args: [],
       }),
       "*",
     );
-    setPaused(next);
+  }, [playing, syncedTime]);
+
+  useEffect(() => {
+    if (!localPlaying) return;
+
+    const interval = window.setInterval(() => {
+      setLocalTime((previous) => previous + 0.5);
+    }, 500);
+
+    return () => window.clearInterval(interval);
+  }, [localPlaying]);
+
+  const emitSyncUpdate = (nextState: { isPlaying: boolean; time: number }) => {
+    if (!watchparty) return;
+
+    window.dispatchEvent(
+      new CustomEvent("trailer-state-update", {
+        detail: nextState,
+      }),
+    );
+  };
+
+  const togglePause = () => {
+    const cw = iframeRef.current?.contentWindow;
+    if (!cw) return;
+
+    const nextPlaying = !localPlaying;
+
+    cw.postMessage(
+      JSON.stringify({
+        event: "command",
+        func: nextPlaying ? "playVideo" : "pauseVideo",
+        args: [],
+      }),
+      "*",
+    );
+    setLocalPlaying(nextPlaying);
+    emitSyncUpdate({
+      isPlaying: nextPlaying,
+      time: localTime,
+    });
+  };
+
+  const rewindTenSeconds = () => {
+    const cw = iframeRef.current?.contentWindow;
+    if (!cw) return;
+
+    const nextTime = Math.max(0, localTime - 10);
+    cw.postMessage(
+      JSON.stringify({
+        event: "command",
+        func: "seekTo",
+        args: [nextTime, true],
+      }),
+      "*",
+    );
+    setLocalTime(nextTime);
+    emitSyncUpdate({
+      isPlaying: localPlaying,
+      time: nextTime,
+    });
   };
 
   return (
@@ -326,6 +540,21 @@ function TrailerModal({
         </span>
 
         <div style={{ display: "flex", gap: "10px" }}>
+          <button
+            onClick={rewindTenSeconds}
+            style={{
+              background: "rgba(255,255,255,0.12)",
+              border: "1px solid rgba(255,255,255,0.25)",
+              color: "#fff",
+              borderRadius: "999px",
+              padding: "6px 20px",
+              fontSize: "12px",
+              cursor: "pointer",
+              letterSpacing: "0.1em",
+            }}
+          >
+            -10s
+          </button>
           {/* Pause / Play */}
           <button
             onClick={togglePause}
@@ -379,6 +608,306 @@ function TrailerModal({
           boxShadow: "0 0 80px rgba(60,60,255,0.3)",
         }}
       />
+      <div
+        style={{
+          color: "#fff",
+          opacity: 0.7,
+          fontSize: "12px",
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+        }}
+      >
+        Sync Time {localTime.toFixed(1)}s{" "}
+        {watchparty ? "- Watch Party Sync" : "- Solo"}
+      </div>
+    </div>
+  );
+}
+
+function SyncedTrailerModal({
+  movieTitle,
+  videos,
+  selectedVideoKey,
+  onSelectVideo,
+  onClose,
+  playing,
+  syncedTime,
+  watchparty,
+}: {
+  movieTitle?: string;
+  videos: MovieVideo[];
+  selectedVideoKey: string | null;
+  onSelectVideo: (key: string) => void;
+  onClose: () => void;
+  playing: boolean;
+  syncedTime: number;
+  watchparty: boolean;
+}) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [localPlaying, setLocalPlaying] = useState(playing);
+  const [localTime, setLocalTime] = useState(syncedTime);
+  const selectedVideo = useMemo(
+    () => videos.find((video) => video.key === selectedVideoKey) || null,
+    [selectedVideoKey, videos],
+  );
+  const videoUrl = selectedVideo ? toEmbeddableVideoUrl(selectedVideo) : "";
+  const canRemoteControl = selectedVideo?.site === "YouTube";
+
+  useEffect(() => {
+    setLocalPlaying(playing);
+  }, [playing, selectedVideoKey]);
+
+  useEffect(() => {
+    setLocalTime(syncedTime);
+  }, [syncedTime, selectedVideoKey]);
+
+  useEffect(() => {
+    if (!videoUrl || !canRemoteControl) return;
+
+    const cw = iframeRef.current?.contentWindow;
+    if (!cw) return;
+
+    cw.postMessage(
+      JSON.stringify({
+        event: "command",
+        func: "seekTo",
+        args: [Math.max(0, syncedTime), true],
+      }),
+      "*",
+    );
+
+    cw.postMessage(
+      JSON.stringify({
+        event: "command",
+        func: playing ? "playVideo" : "pauseVideo",
+        args: [],
+      }),
+      "*",
+    );
+  }, [canRemoteControl, playing, syncedTime, videoUrl]);
+
+  useEffect(() => {
+    if (!localPlaying || !selectedVideo) return;
+
+    const interval = window.setInterval(() => {
+      setLocalTime((previous) => previous + 0.5);
+    }, 500);
+
+    return () => window.clearInterval(interval);
+  }, [localPlaying, selectedVideo]);
+
+  const emitSyncUpdate = (nextState: { isPlaying: boolean; time: number }) => {
+    if (!watchparty) return;
+
+    window.dispatchEvent(
+      new CustomEvent("trailer-state-update", {
+        detail: nextState,
+      }),
+    );
+  };
+
+  const togglePause = () => {
+    if (!canRemoteControl) return;
+
+    const cw = iframeRef.current?.contentWindow;
+    if (!cw) return;
+
+    const nextPlaying = !localPlaying;
+
+    cw.postMessage(
+      JSON.stringify({
+        event: "command",
+        func: nextPlaying ? "playVideo" : "pauseVideo",
+        args: [],
+      }),
+      "*",
+    );
+    setLocalPlaying(nextPlaying);
+    emitSyncUpdate({
+      isPlaying: nextPlaying,
+      time: localTime,
+    });
+  };
+
+  const rewindTenSeconds = () => {
+    if (!canRemoteControl) return;
+
+    const cw = iframeRef.current?.contentWindow;
+    if (!cw) return;
+
+    const nextTime = Math.max(0, localTime - 10);
+    cw.postMessage(
+      JSON.stringify({
+        event: "command",
+        func: "seekTo",
+        args: [nextTime, true],
+      }),
+      "*",
+    );
+    setLocalTime(nextTime);
+    emitSyncUpdate({
+      isPlaying: localPlaying,
+      time: nextTime,
+    });
+  };
+
+  return (
+    <div className="absolute inset-0 z-[300] bg-black/95">
+      <div className="mx-auto flex h-full w-full max-w-[1920px] flex-col gap-4 px-4 py-4 lg:px-6">
+        <div className="flex flex-col gap-4 rounded-[28px] border border-white/10 bg-black/45 px-5 py-4 backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.35em] text-white/50">
+              Theatre Video Deck
+            </div>
+            <div className="mt-2 text-2xl font-black italic text-white">
+              {selectedVideo?.name ||
+                selectedVideo?.type ||
+                movieTitle ||
+                "Movie videos"}
+            </div>
+            <div className="mt-2 text-sm leading-6 text-white/55">
+              {selectedVideo
+                ? `${selectedVideo.site}${selectedVideo.type ? ` • ${selectedVideo.type}` : ""}`
+                : videos.length > 0
+                  ? "No explicit trailer was auto-selected. Choose a video from the list."
+                  : "No playable videos are available for this title yet."}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={rewindTenSeconds}
+              disabled={!canRemoteControl}
+              className="rounded-full border border-white/20 bg-white/10 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              -10s
+            </button>
+            <button
+              onClick={togglePause}
+              disabled={!canRemoteControl}
+              className="min-w-[100px] rounded-full border border-white/20 bg-white/10 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {localPlaying ? "Pause" : "Play"}
+            </button>
+            <button
+              onClick={onClose}
+              className="rounded-full border border-white/20 bg-white/10 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-white"
+            >
+              ESC - Close
+            </button>
+          </div>
+        </div>
+
+        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="flex min-h-0 flex-col gap-4 rounded-[32px] border border-white/10 bg-black/45 p-4 backdrop-blur-xl">
+            <div className="rounded-[28px] border border-white/10 bg-black/70 p-3">
+              {selectedVideo && videoUrl ? (
+                <iframe
+                  key={selectedVideo.key}
+                  ref={iframeRef}
+                  title={selectedVideo.name || selectedVideo.type || "Trailer"}
+                  src={`${videoUrl}${videoUrl.includes("?") ? "&" : "?"}autoplay=1&controls=1&enablejsapi=1`}
+                  allow="autoplay; encrypted-media; fullscreen"
+                  allowFullScreen
+                  className="h-[58vh] w-full rounded-[20px] border-0 xl:h-[68vh]"
+                />
+              ) : (
+                <div className="flex h-[58vh] items-center justify-center rounded-[20px] bg-black/80 px-6 text-center xl:h-[68vh]">
+                  <div>
+                    <div className="text-[10px] font-black uppercase tracking-[0.35em] text-[#f4b63d]">
+                      Video selection
+                    </div>
+                    <div className="mt-4 text-3xl font-black italic text-white">
+                      Choose what to play
+                    </div>
+                    <p className="mt-3 max-w-xl text-sm leading-7 text-white/60">
+                      This room keeps the existing playback controls, but it no
+                      longer guesses the wrong trailer. Pick one of the
+                      available clips from the panel on the right.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-[24px] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm leading-6 text-white/60">
+              Sync time {localTime.toFixed(1)}s{" "}
+              {watchparty ? "• Watch party sync enabled" : "• Solo mode"}
+              {!canRemoteControl && selectedVideo && (
+                <span className="block text-white/45">
+                  Playback controls are optimized for YouTube embeds. This
+                  selection can still be viewed here.
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex min-h-0 flex-col rounded-[32px] border border-white/10 bg-black/45 p-4 backdrop-blur-xl">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.35em] text-[#f4b63d]">
+                  Available Videos
+                </div>
+                <div className="mt-2 text-xl font-black text-white">
+                  Select a clip
+                </div>
+              </div>
+              <div className="rounded-full border border-white/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-white/45">
+                {videos.length}
+              </div>
+            </div>
+
+            <div className="mt-4 flex-1 space-y-3 overflow-y-auto pr-1">
+              {videos.length > 0 ? (
+                videos.map((video, index) => {
+                  const isSelected = video.key === selectedVideoKey;
+                  return (
+                    <button
+                      key={video.key}
+                      type="button"
+                      onClick={() => {
+                        onSelectVideo(video.key);
+                        setLocalTime(0);
+                        setLocalPlaying(true);
+                      }}
+                      className={`w-full rounded-[24px] border p-4 text-left transition-all ${
+                        isSelected
+                          ? "border-[#f4b63d]/60 bg-[#f4b63d]/10 shadow-[0_18px_40px_rgba(244,182,61,0.12)]"
+                          : "border-white/10 bg-white/[0.04] hover:border-white/20"
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-[#f4b63d]">
+                          {video.type || "Video"}
+                        </span>
+                        {video.official && (
+                          <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-white/45">
+                            Official
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-3 text-base font-black leading-6 text-white">
+                        {video.name ||
+                          `${movieTitle || "Movie"} clip ${index + 1}`}
+                      </div>
+                      <div className="mt-2 text-sm leading-6 text-white/50">
+                        {video.site}
+                        {video.published_at
+                          ? ` • ${new Date(video.published_at).getFullYear()}`
+                          : ""}
+                      </div>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="rounded-[24px] border border-dashed border-white/10 p-5 text-sm leading-7 text-white/55">
+                  No playable videos were returned for this movie.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -439,108 +968,786 @@ function CommentsOverlay({ onClose }: { onClose: () => void }) {
   );
 }
 
-function AIChatOverlay({ onClose, mode }: { onClose: () => void; mode: Mode }) {
+function ContextualCommentsOverlay({ onClose }: { onClose: () => void }) {
   return (
-    <OverlayShell title="CineBot AI Desk" onClose={onClose}>
+    <OverlayShell title="Comments / Chairs" onClose={onClose}>
       <div className="text-muted-foreground leading-relaxed">
-        AI endpoints in `http-server` are currently protected. This UI is ready
-        for Phase 3 authenticated networking and streaming chat.
-      </div>
-      <div className="mt-3 text-xs text-muted-foreground">
-        Context: {mode === "watchparty" ? "Multiplayer watch party" : "Solo"}
+        Live chat is available inside shared watch party rooms. Create or join a
+        synced room to comment with the rest of the audience.
       </div>
     </OverlayShell>
   );
 }
 
-function GuestBox({
-  x,
-  y,
-  z,
-  yaw,
+function RoomCommentsOverlay({
+  onClose,
+  currentUser,
 }: {
-  x: number;
-  y: number;
-  z: number;
-  yaw: number;
+  onClose: () => void;
+  currentUser: ViewerUser | null;
 }) {
-  const bobbingRef = useRef<THREE.Group>(null);
+  const socket = useSocket();
+  const [messages, setMessages] = useState<any[]>([]);
+  const [input, setInput] = useState("");
 
-  useFrame(({ clock }) => {
-    if (!bobbingRef.current) return;
-    bobbingRef.current.position.y =
-      Math.sin(clock.getElapsedTime() * 1.8) * 0.04;
-  });
+  useEffect(() => {
+    if (!socket) return;
+
+    const unsubscribeBootstrap = socket.onRoomBootstrap((data) => {
+      setMessages(data?.chatMessages ?? []);
+    });
+    const unsubscribeMessage = socket.onChatMessage((message) => {
+      setMessages((previous) => [...previous, message]);
+    });
+    const unsubscribeLike = socket.onChatMessageLiked((payload) => {
+      setMessages((previous) =>
+        previous.map((message) =>
+          message.id === payload.messageId
+            ? { ...message, likes: payload.likes }
+            : message,
+        ),
+      );
+    });
+
+    return () => {
+      unsubscribeBootstrap();
+      unsubscribeMessage();
+      unsubscribeLike();
+    };
+  }, [socket]);
 
   return (
-    <group position={[x, y, z]} rotation={[0, yaw, 0]}>
-      <group ref={bobbingRef}>
-        {/* Legs */}
-        {[-0.15, 0.15].map((lx, i) => (
-          <mesh key={i} position={[lx, -0.65, 0]} castShadow>
-            <capsuleGeometry args={[0.07, 0.4, 6, 8]} />
-            <meshStandardMaterial color="#222" roughness={0.8} />
-          </mesh>
-        ))}
-        {/* Body */}
-        <mesh position={[0, -0.1, 0]} castShadow>
-          <capsuleGeometry args={[0.22, 0.55, 8, 12]} />
-          <meshStandardMaterial
-            color="#cc2222"
-            roughness={0.6}
-            metalness={0.1}
+    <OverlayShell title="Comments / Chairs" onClose={onClose}>
+      <div className="grid gap-4">
+        <div className="max-h-[50vh] overflow-y-auto pr-2 grid gap-3">
+          {messages.map((message) => (
+            <div
+              key={message.id}
+              className="rounded-3xl border border-border/20 bg-card/30 p-4"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="font-black text-foreground">
+                  {message.senderName}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {new Date(message.createdAt).toLocaleTimeString()}
+                </div>
+              </div>
+              <div className="mt-3 text-muted-foreground leading-relaxed">
+                {message.text}
+              </div>
+              <button
+                onClick={() =>
+                  socket.emit("chat-like", {
+                    messageId: message.id,
+                    senderId: currentUser?._id ?? "guest",
+                  })
+                }
+                className="mt-4 text-sm text-primary"
+              >
+                Like {message.likes || 0}
+              </button>
+            </div>
+          ))}
+
+          {messages.length === 0 && (
+            <div className="rounded-3xl border border-dashed border-border/30 p-6 text-sm text-muted-foreground">
+              No messages yet. Break the silence with the first comment.
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-3">
+          <input
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            placeholder="Send a room message"
+            className="flex-1 rounded-full border border-border/20 bg-card/20 px-4 py-3 outline-none"
           />
-        </mesh>
-        {/* Collar */}
-        <mesh position={[0, 0.28, 0]}>
-          <cylinderGeometry args={[0.14, 0.18, 0.1, 12]} />
-          <meshStandardMaterial color="#111" roughness={0.6} />
-        </mesh>
-        {/* Neck */}
-        <mesh position={[0, 0.42, 0]} castShadow>
-          <cylinderGeometry args={[0.09, 0.11, 0.18, 10]} />
-          <meshStandardMaterial color="#F5CBA7" roughness={0.5} />
-        </mesh>
-        {/* Head */}
-        <mesh position={[0, 0.64, 0]} castShadow>
-          <sphereGeometry args={[0.2, 16, 16]} />
-          <meshStandardMaterial color="#F5CBA7" roughness={0.5} />
-        </mesh>
-        {/* Hair */}
-        <mesh position={[0, 0.76, 0]}>
-          <sphereGeometry args={[0.205, 16, 10]} />
-          <meshStandardMaterial color="#2C1A0E" roughness={0.9} />
-        </mesh>
-        {/* Eyes */}
-        <mesh position={[-0.075, 0.66, 0.17]}>
-          <sphereGeometry args={[0.032, 8, 8]} />
-          <meshStandardMaterial color="#111" roughness={0.3} />
-        </mesh>
-        <mesh position={[0.075, 0.66, 0.17]}>
-          <sphereGeometry args={[0.032, 8, 8]} />
-          <meshStandardMaterial color="#111" roughness={0.3} />
-        </mesh>
-        {/* Name tag glow */}
-        <mesh position={[0, -0.08, 0.24]}>
-          <boxGeometry args={[0.28, 0.12, 0.02]} />
-          <meshStandardMaterial
-            color="#fff"
-            emissive="#4444ff"
-            emissiveIntensity={1.5}
-            toneMapped={false}
+          <button
+            onClick={() => {
+              if (!input.trim()) return;
+              socket.emit("chat-send", {
+                text: input.trim(),
+                senderId: currentUser?._id ?? "guest",
+                senderName:
+                  currentUser?.fullName || currentUser?.username || "Guest",
+              });
+              setInput("");
+            }}
+            className="rounded-full bg-primary px-5 py-3 text-[10px] font-black uppercase tracking-[0.3em] text-primary-foreground"
+          >
+            Send
+          </button>
+        </div>
+      </div>
+    </OverlayShell>
+  );
+}
+
+function RoomAIChatOverlay({
+  onClose,
+  mode,
+  movieId,
+}: {
+  onClose: () => void;
+  mode: Mode;
+  movieId: number | null;
+}) {
+  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<
+    Array<{ role: "user" | "ai"; content: string }>
+  >([
+    {
+      role: "ai",
+      content:
+        mode === "watchparty"
+          ? "Ask me what this room should watch next, or ask about the current movie."
+          : "Ask me about the movie, the cast, or what to watch next.",
+    },
+  ]);
+  const [status, setStatus] = useState("");
+
+  const sendMessage = async () => {
+    if (!input.trim()) return;
+
+    const nextInput = input.trim();
+    setMessages((previous) => [
+      ...previous,
+      {
+        role: "user",
+        content: nextInput,
+      },
+    ]);
+    setInput("");
+    setStatus("Thinking...");
+
+    try {
+      const response = movieId
+        ? await apiPost<ApiResponse<{ role?: string; content?: string }>>(
+            "/ai/context-chat",
+            {
+              movieId,
+              question: nextInput,
+            },
+          )
+        : await apiPost<ApiResponse<{ role?: string; content?: string }>>(
+            "/ai/chat",
+            {
+              message: nextInput,
+            },
+          );
+
+      setMessages((previous) => [
+        ...previous,
+        {
+          role: "ai",
+          content:
+            response.data.content ||
+            response.message ||
+            "The AI room did not return a response.",
+        },
+      ]);
+      setStatus("");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "AI request failed.");
+    }
+  };
+
+  return (
+    <OverlayShell title="CineBot AI Desk" onClose={onClose}>
+      <div className="grid gap-4">
+        <div className="max-h-[50vh] overflow-y-auto pr-2 grid gap-3">
+          {messages.map((message, index) => (
+            <div
+              key={`${message.role}-${index}`}
+              className={`rounded-3xl border p-4 ${
+                message.role === "ai"
+                  ? "border-primary/20 bg-primary/5"
+                  : "border-border/20 bg-card/20"
+              }`}
+            >
+              <div className="text-[10px] font-black uppercase tracking-[0.35em] text-primary">
+                {message.role === "ai" ? "CineBot" : "You"}
+              </div>
+              <div className="mt-3 text-sm text-muted-foreground leading-relaxed">
+                {message.content}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex gap-3">
+          <input
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            placeholder="Ask about the movie or request a suggestion"
+            className="flex-1 rounded-full border border-border/20 bg-card/20 px-4 py-3 outline-none"
           />
-        </mesh>
-        {/* Arms */}
-        <mesh position={[-0.32, -0.05, 0]} rotation={[0, 0, 0.4]} castShadow>
-          <capsuleGeometry args={[0.065, 0.38, 6, 8]} />
-          <meshStandardMaterial color="#cc2222" roughness={0.6} />
-        </mesh>
-        <mesh position={[0.32, -0.05, 0]} rotation={[0, 0, -0.4]} castShadow>
-          <capsuleGeometry args={[0.065, 0.38, 6, 8]} />
-          <meshStandardMaterial color="#cc2222" roughness={0.6} />
-        </mesh>
-      </group>
-    </group>
+          <button
+            onClick={sendMessage}
+            className="rounded-full bg-primary px-5 py-3 text-[10px] font-black uppercase tracking-[0.3em] text-primary-foreground"
+          >
+            Ask
+          </button>
+        </div>
+
+        {status && (
+          <div className="text-sm text-muted-foreground">{status}</div>
+        )}
+      </div>
+    </OverlayShell>
+  );
+}
+
+function VoteDock({
+  roomId,
+  movieId,
+  visible,
+}: {
+  roomId: string;
+  movieId: number | null;
+  visible: boolean;
+}) {
+  const socket = useSocket();
+  const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [votes, setVotes] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadRecommendations = async () => {
+      try {
+        const response = await apiGet<ApiResponse<any[]>>(
+          `/rooms/${roomId}/recommendations`,
+        );
+        setRecommendations(response.data);
+      } catch {
+        if (!movieId) return;
+        try {
+          const fallback = await apiGet<ApiResponse<any[]>>(
+            `/movies/${movieId}/related`,
+          );
+          setRecommendations(fallback.data);
+        } catch {
+          setRecommendations([]);
+        }
+      }
+    };
+
+    loadRecommendations();
+  }, [movieId, roomId]);
+
+  useEffect(() => {
+    const unsubscribeBootstrap = socket.onRoomBootstrap((data) => {
+      setVotes(data?.voteState ?? []);
+    });
+    const unsubscribeVotes = socket.onVoteState((data) => {
+      setVotes(data ?? []);
+    });
+
+    return () => {
+      unsubscribeBootstrap();
+      unsubscribeVotes();
+    };
+  }, [socket]);
+
+  if (!visible) return null;
+
+  const winningVote = votes[0];
+
+  return (
+    <div className="absolute bottom-6 right-6 z-[245] pointer-events-auto group">
+      <div className="w-[340px] rounded-[var(--radius)] border border-border/20 bg-background/80 p-4 backdrop-blur-2xl opacity-55 transition-opacity duration-300 group-hover:opacity-100">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-primary text-[10px] font-black uppercase tracking-[0.35em]">
+              Vote Shelf
+            </div>
+            <div className="mt-2 text-sm text-muted-foreground">
+              Hover to vote on the next shared recommendation.
+            </div>
+          </div>
+          {winningVote && (
+            <div className="rounded-full border border-primary/20 px-3 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-primary">
+              Leading {winningVote.count}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 grid gap-3">
+          {recommendations.slice(0, 3).map((recommendation) => {
+            const voteCount =
+              votes.find(
+                (vote) => vote.optionId === String(recommendation.tmdb_id),
+              )?.count || 0;
+
+            return (
+              <div
+                key={recommendation.tmdb_id}
+                className="rounded-2xl border border-border/20 bg-card/20 p-3"
+              >
+                <div className="font-black text-sm text-foreground">
+                  {recommendation.title}
+                </div>
+                <div className="mt-2 text-xs text-muted-foreground line-clamp-2">
+                  {recommendation.overview}
+                </div>
+                <button
+                  onClick={() =>
+                    socket.emit("vote-submit", {
+                      optionId: String(recommendation.tmdb_id),
+                      label: recommendation.title,
+                    })
+                  }
+                  className="mt-3 rounded-full bg-primary px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-primary-foreground"
+                >
+                  Vote {voteCount > 0 ? `(${voteCount})` : ""}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PersistentMovieCommentsOverlay({
+  movieId,
+  onClose,
+  currentUser,
+}: {
+  movieId: number;
+  onClose: () => void;
+  currentUser: ViewerUser | null;
+}) {
+  const [comments, setComments] = useState<MovieComment[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [status, setStatus] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadComments = async () => {
+      setLoading(true);
+      try {
+        const response = await apiGet<ApiResponse<MovieComment[]>>(
+          `/movies/${movieId}/comments`,
+        );
+        if (!mounted) return;
+        setComments(response.data);
+      } catch {
+        if (!mounted) return;
+        setComments([]);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadComments();
+    return () => {
+      mounted = false;
+    };
+  }, [movieId]);
+
+  const submitComment = async () => {
+    if (!currentUser || !input.trim()) return;
+
+    setSubmitting(true);
+    setStatus("");
+    try {
+      const response = await apiPost<ApiResponse<MovieComment>>(
+        `/movies/${movieId}/comments`,
+        {
+          text: input.trim(),
+        },
+      );
+      setComments((previous) => [response.data, ...previous]);
+      setInput("");
+    } catch (error) {
+      setStatus(
+        error instanceof Error ? error.message : "Unable to save comment.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <OverlayShell title="Movie Comments" onClose={onClose}>
+      <PersistentCommentsPanel
+        comments={comments}
+        input={input}
+        onInputChange={setInput}
+        onSubmit={submitComment}
+        submitting={submitting}
+        composerDisabled={!currentUser}
+        currentUser={
+          currentUser
+            ? {
+                username: currentUser.username,
+                fullName: currentUser.fullName,
+                avatar: currentUser.avatar,
+                profilePhoto: currentUser.profilePhoto,
+              }
+            : null
+        }
+        title="Persistent movie discussion"
+        subtitle="These comments are stored with the movie and visible from both the movie page and the room."
+        emptyMessage={
+          loading
+            ? "Loading comments..."
+            : "No comments yet. Start the movie discussion."
+        }
+      />
+      {!currentUser && (
+        <div className="mt-4 text-sm text-amber-200">
+          Sign in through the main app to post movie comments.
+        </div>
+      )}
+      {status && <div className="mt-4 text-sm text-amber-200">{status}</div>}
+    </OverlayShell>
+  );
+}
+
+function RoomAiExperienceOverlay({
+  onClose,
+  movieId,
+  movieTitle,
+  currentUser,
+}: {
+  onClose: () => void;
+  movieId: number | null;
+  movieTitle?: string;
+  currentUser: ViewerUser | null;
+}) {
+  const [selectedMode, setSelectedMode] = useState<AiModeId | null>(null);
+  const [messages, setMessages] = useState<
+    Array<{ role: "user" | "ai"; content: string }>
+  >([
+    {
+      role: "ai",
+      content:
+        "Choose how you want the AI to help before starting the conversation.",
+    },
+  ]);
+  const [input, setInput] = useState("");
+  const [status, setStatus] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const introByMode: Record<AiModeId, string> = {
+    suggest:
+      "Tell me what you liked or disliked and I will suggest one movie that matches that feeling.",
+    context:
+      "Ask a contextual question about the current movie, its cast, plot, or direction.",
+    chat: "Use simple chat for broader movie conversation and lightweight recommendations.",
+  };
+
+  const handleModeSelect = (mode: AiModeId) => {
+    setSelectedMode(mode);
+    setInput("");
+    setStatus("");
+    setMessages([
+      {
+        role: "ai",
+        content: introByMode[mode],
+      },
+    ]);
+  };
+
+  const submitPrompt = async () => {
+    if (!selectedMode || !input.trim()) return;
+    if (!currentUser) {
+      setStatus("Sign in through the main app to use AI features.");
+      return;
+    }
+
+    const prompt = input.trim();
+    setLoading(true);
+    setStatus("");
+    setInput("");
+    setMessages((previous) => [
+      ...previous,
+      {
+        role: "user",
+        content: prompt,
+      },
+    ]);
+
+    try {
+      let nextContent = "The AI room did not return a response.";
+
+      if (selectedMode === "suggest") {
+        if (!movieId) {
+          nextContent = "This mode needs a movie context first.";
+        } else {
+          const response = await apiPost<
+            ApiResponse<{ movieTitle?: string; reason?: string }>
+          >("/ai/suggest", {
+            movieId,
+            feedback: prompt,
+          });
+          nextContent = response.data.movieTitle
+            ? `${response.data.movieTitle}\n\n${response.data.reason || ""}`.trim()
+            : response.message;
+        }
+      } else if (selectedMode === "context") {
+        if (!movieId) {
+          nextContent = "This mode needs a movie context first.";
+        } else {
+          const response = await apiPost<ApiResponse<{ content?: string }>>(
+            "/ai/context-chat",
+            {
+              movieId,
+              question: prompt,
+            },
+          );
+          nextContent = response.data.content || response.message;
+        }
+      } else {
+        const response = await apiPost<ApiResponse<{ content?: string }>>(
+          "/ai/chat",
+          {
+            message: prompt,
+          },
+        );
+        nextContent = response.data.content || response.message;
+      }
+
+      setMessages((previous) => [
+        ...previous,
+        {
+          role: "ai",
+          content: nextContent,
+        },
+      ]);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "AI request failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="absolute inset-0 z-[240] flex items-center justify-center bg-black/80 p-5">
+      <div className="h-[86vh] w-[90vw] max-w-[1500px] overflow-hidden rounded-[36px] border border-white/10 bg-accent-foreground shadow-2xl">
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">
+              Room AI
+            </div>
+            <div className="mt-2 text-xl font-black italic text-white">
+              {movieTitle ? `${movieTitle} AI Desk` : "AI Desk"}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-full border border-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-white/75"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="h-[calc(86vh-81px)] overflow-y-auto p-6">
+          <AiModePanel
+            title="Choose how the AI should help"
+            subtitle="The same three-mode AI flow is embedded directly inside the room, so nobody has to leave the theatre."
+            selectedMode={selectedMode}
+            onSelectMode={handleModeSelect}
+            messages={messages}
+            input={input}
+            onInputChange={setInput}
+            onSubmit={submitPrompt}
+            loading={loading}
+            status={status}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RichMovieInfoOverlay({
+  movieId,
+  onClose,
+}: {
+  movieId: number;
+  onClose: () => void;
+}) {
+  const { movie, status } = useMovieDetails(movieId);
+
+  if (status === "loading") {
+    return (
+      <OverlayShell title="Movie Info" onClose={onClose}>
+        <div className="text-white/80">Loading rich movie details...</div>
+      </OverlayShell>
+    );
+  }
+
+  if (status === "error" || !movie) {
+    return (
+      <OverlayShell title="Movie Info" onClose={onClose}>
+        <div className="text-red-300/90 font-bold">
+          Movie metadata could not be loaded.
+        </div>
+      </OverlayShell>
+    );
+  }
+
+  const details = mapMovieToRichDetails(movie);
+
+  return (
+    <div className="absolute inset-0 z-[220] flex items-center justify-center bg-black/70 p-6">
+      <div className="w-full max-w-4xl max-h-[90vh] rounded-[var(--radius)] bg-accent-foreground border border-border/20 p-5 shadow-2xl overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between mb-4">
+          <div className="font-black uppercase tracking-widest text-primary text-sm">
+            Movie Info
+          </div>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-full bg-card border border-border/20 hover:border-primary/40"
+          >
+            Close
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <MovieRichDetails
+            title={movie.title}
+            overview={movie.overview}
+            genres={details.genres}
+            releaseDate={details.releaseDate}
+            runtime={details.runtime}
+            rating={details.rating}
+            director={details.director}
+            actors={details.actors}
+            poster={movie.images?.poster}
+            compact
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RoomChatDrawer({
+  visible,
+  currentUser,
+}: {
+  visible: boolean;
+  currentUser: ViewerUser | null;
+}) {
+  const socket = useSocket();
+  const [messages, setMessages] = useState<any[]>([]);
+  const [input, setInput] = useState("");
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const unsubscribeBootstrap = socket.onRoomBootstrap((data) => {
+      setMessages(data?.chatMessages ?? []);
+    });
+    const unsubscribeMessage = socket.onChatMessage((message) => {
+      setMessages((previous) => [...previous, message]);
+    });
+
+    return () => {
+      unsubscribeBootstrap();
+      unsubscribeMessage();
+    };
+  }, [socket]);
+
+  if (!visible) return null;
+
+  return (
+    <div className="absolute bottom-6 right-6 z-[245] pointer-events-auto">
+      <div
+        className={`flex transition-transform duration-300 ${
+          open ? "translate-x-0" : "translate-x-[372px]"
+        }`}
+      >
+        <button
+          onClick={() => setOpen((previous) => !previous)}
+          className="mr-3 self-end rounded-full border border-border/20 bg-primary/80 px-4 py-3 text-[10px] font-black uppercase tracking-[0.3em] text-white backdrop-blur-xl"
+        >
+          {open ? "Hide Chat" : "User Chat"}
+        </button>
+
+        <div className="w-[340px] rounded-[32px] border border-white/10 bg-card-foreground p-4 shadow-2xl backdrop-blur-2xl">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-primary text-[10px] font-black uppercase tracking-[0.35em]">
+                User Chat
+              </div>
+              <div className="mt-2 text-sm text-white/60">
+                Real-time room conversation for people inside this watch party.
+              </div>
+            </div>
+            <div className="rounded-full border border-white/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-white/45">
+              Live
+            </div>
+          </div>
+
+          <div className="mt-4 max-h-[360px] space-y-3 overflow-y-auto pr-1">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="font-black text-white">
+                    {message.senderName}
+                  </div>
+                  <div className="text-xs text-white/35">
+                    {new Date(message.createdAt).toLocaleTimeString()}
+                  </div>
+                </div>
+                <div className="mt-2 text-sm leading-6 text-white/65">
+                  {message.text}
+                </div>
+              </div>
+            ))}
+
+            {messages.length === 0 && (
+              <div className="rounded-[24px] border border-dashed border-white/10 p-5 text-sm text-white/50">
+                Nobody has said anything in the room yet.
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 flex gap-3">
+            <input
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              placeholder={
+                currentUser
+                  ? "Send a live room message"
+                  : "Sign in through the main app to chat"
+              }
+              disabled={!currentUser}
+              className="flex-1 rounded-full border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-white/35 disabled:opacity-50"
+            />
+            <button
+              onClick={() => {
+                if (!input.trim()) return;
+                socket.emit("chat-send", {
+                  text: input.trim(),
+                  senderId: currentUser?._id ?? "guest",
+                  senderName:
+                    currentUser?.fullName || currentUser?.username || "Guest",
+                });
+                setInput("");
+              }}
+              disabled={!currentUser || !input.trim()}
+              className="rounded-full bg-primary px-4 py-3 text-[10px] font-black uppercase tracking-[0.3em] text-primary-foreground disabled:opacity-50"
+            >
+              Send
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -548,6 +1755,7 @@ function WatchPartyAvatars({
   roomId,
   playerRef,
   setGuests,
+  avatarId,
 }: {
   roomId: string;
   playerRef: React.MutableRefObject<{
@@ -556,11 +1764,8 @@ function WatchPartyAvatars({
     z: number;
     yaw: number;
   }>;
-  setGuests: React.Dispatch<
-    React.SetStateAction<
-      Array<{ peerId: string; x: number; y: number; z: number; yaw: number }>
-    >
-  >;
+  setGuests: React.Dispatch<React.SetStateAction<GuestPresence[]>>;
+  avatarId?: string | null;
 }) {
   const socket = useSocket();
   const emittingRef = useRef(false);
@@ -573,9 +1778,11 @@ function WatchPartyAvatars({
       const z = Number(data.z);
       const y = Number(data.y ?? PLAYER_Y);
       const yaw = Number(data.rY ?? data.yaw ?? 0);
+      const nextAvatarId =
+        typeof data.avatarId === "string" ? data.avatarId : null;
       setGuests((prev) => {
         const filtered = prev.filter((p) => p.peerId !== peerId);
-        return [...filtered, { peerId, x, y, z, yaw }];
+        return [...filtered, { peerId, x, y, z, yaw, avatarId: nextAvatarId }];
       });
     });
     return () => unsub();
@@ -598,14 +1805,14 @@ function WatchPartyAvatars({
 
     const interval = window.setInterval(() => {
       const { x, y, z, yaw } = playerRef.current;
-      socket.emit("avatar-sync", { roomId, x, y, z, rY: yaw });
+      socket.emit("avatar-sync", { roomId, x, y, z, rY: yaw, avatarId });
     }, 100);
 
     return () => {
       window.clearInterval(interval);
       emittingRef.current = false;
     };
-  }, [roomId, playerRef, socket]);
+  }, [avatarId, roomId, playerRef, socket]);
 
   return null;
 }
@@ -801,19 +2008,19 @@ function WatchPartyMediaBar({
     });
 
     // Trailer play/pause toggle (already existed)
-    const handleToggle = (e: any) =>
-      socket.emit("trailer-update", { isPlaying: e.detail });
+    const handleStateUpdate = (e: any) =>
+      socket.emit("trailer-update", e.detail ?? {});
 
     // ── NEW: listen for modal open/close dispatched locally ──
     const handleModal = (e: any) =>
       socket.emit("trailer-update", { modalOpen: e.detail });
 
-    window.addEventListener("trailer-toggle", handleToggle);
+    window.addEventListener("trailer-state-update", handleStateUpdate);
     window.addEventListener("trailer-modal", handleModal);
 
     return () => {
       unsubTrailer();
-      window.removeEventListener("trailer-toggle", handleToggle);
+      window.removeEventListener("trailer-state-update", handleStateUpdate);
       window.removeEventListener("trailer-modal", handleModal);
     };
   }, [socket, onSyncTrailer, onSyncModal]);
@@ -921,28 +2128,32 @@ function WatchPartyMediaBar({
   return (
     <div className="absolute top-0 left-0 right-0 z-[200] pointer-events-none">
       {/* ── Toggle button — always visible ── */}
-      <div className="pointer-events-auto flex justify-end px-3 pt-2">
+      <div
+        className={`pointer-events-auto flex justify-between items-center px-6 py-3 bg-neutral-950/70 backdrop-blur-xl ${
+          hidden ? "border-b border-border/20" : ""
+        }`}
+      >
+        <div className="text-sm font-black uppercase tracking-widest text-primary">
+          Watch Party
+        </div>
         <button
           onClick={() => setHidden((h) => !h)}
-          className="flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest bg-neutral-950/80 border border-border/20 backdrop-blur-xl text-white/70 hover:text-white hover:border-primary/40 transition-all"
+          className="flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest bg-neutral-900/80 border border-border/20 hover:border-primary/40 transition-all text-white/70 hover:text-white"
         >
-          {hidden ? "👁 Show Party" : "✕ Hide Party"}
+          {hidden ? "👁 Show" : "✕ Hide"}
         </button>
       </div>
 
       {/* ── Collapsible panel ── */}
       {!hidden && (
         <div className="pointer-events-auto bg-neutral-950/70 border-b border-border/20 backdrop-blur-xl p-3">
-          <div className="flex items-center justify-between gap-3 mb-2">
-            <div className="text-sm font-black uppercase tracking-widest text-primary">
-              Watch Party
-            </div>
+          <div className="flex items-center justify-end mb-2">
             <div className="text-xs text-white/70 truncate">{status}</div>
           </div>
 
           <div className="flex gap-3 overflow-x-auto pb-1">
             {/* Local feed */}
-            <div className="min-w-[220px] w-[220px] rounded-xl border border-border/20 bg-neutral-900 p-2">
+            <div className="min-w-55 w-55 rounded-xl border border-border/20 bg-neutral-900 p-2">
               <div className="text-xs font-bold text-white/80 mb-2">You</div>
               <div className="w-full aspect-video rounded-lg overflow-hidden bg-black border border-border/10 relative">
                 <video
@@ -988,7 +2199,7 @@ function WatchPartyMediaBar({
               .map((m) => (
                 <div
                   key={m.consumerId}
-                  className="min-w-[220px] w-[220px] rounded-xl border border-border/20 bg-neutral-900 p-2"
+                  className="min-w-55 w-55 rounded-xl border border-border/20 bg-neutral-900 p-2"
                 >
                   <div className="text-xs font-bold text-white/80 mb-2">
                     Guest
@@ -1535,7 +2746,319 @@ function CreateRoomOverlay({
   );
 }
 
+function PersistentCreateRoomOverlay({
+  currentUser,
+  onCreate,
+}: {
+  currentUser: ViewerUser | null;
+  onCreate: (roomId: string, movieId: number, aiMode: boolean) => void;
+}) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "error" | "ready">(
+    "idle",
+  );
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const [results, setResults] = useState<SearchMovieResult[]>([]);
+  const [selectedMovie, setSelectedMovie] = useState<SearchMovieResult | null>(
+    null,
+  );
+  const [roomLabel, setRoomLabel] = useState("");
+  const [aiMode, setAiMode] = useState(false);
+  const [visibility, setVisibility] = useState<"private" | "public">("private");
+  const [maxParticipants, setMaxParticipants] = useState(8);
+  const [createdRoom, setCreatedRoom] = useState<RoomCreationPayload | null>(
+    null,
+  );
+  const [creating, setCreating] = useState(false);
+
+  const doSearch = useCallback(async (query: string) => {
+    setStatus("loading");
+    setErrorText(null);
+    try {
+      const res = await apiGet<ApiResponse<SearchMovieResult[]>>(
+        "/movies/search",
+        {
+          query,
+        } as any,
+      );
+      setResults(res.data ?? []);
+      setStatus("ready");
+    } catch (error) {
+      setStatus("error");
+      setErrorText(
+        error instanceof Error ? error.message : "Movie search failed.",
+      );
+    }
+  }, []);
+
+  const createRoom = useCallback(async () => {
+    if (!selectedMovie) return;
+
+    setCreating(true);
+    setErrorText(null);
+    try {
+      const response = await apiPost<ApiResponse<RoomCreationPayload>>(
+        "/rooms",
+        {
+          movieId: selectedMovie.tmdb_id,
+          label: roomLabel.trim() || `${selectedMovie.title} Watch Party`,
+          aiMode,
+          visibility,
+          maxParticipants,
+          allowChat: true,
+          allowVoice: true,
+          allowVoting: true,
+        },
+      );
+
+      setCreatedRoom(response.data);
+    } catch (error) {
+      setErrorText(
+        error instanceof Error ? error.message : "Room creation failed.",
+      );
+    } finally {
+      setCreating(false);
+    }
+  }, [aiMode, maxParticipants, roomLabel, selectedMovie, visibility]);
+
+  const webMainUrl = import.meta.env.VITE_WEB_MAIN_URL || DEFAULT_WEB_MAIN_URL;
+
+  return (
+    <div className="absolute inset-0 z-[210] flex items-center justify-center bg-black/70 p-6">
+      <div className="w-full max-w-4xl rounded-[var(--radius)] bg-background/90 border border-border/20 p-6 shadow-2xl">
+        <div className="text-2xl font-black italic text-foreground mb-2">
+          Create a Watch Party
+        </div>
+        <div className="text-muted-foreground leading-relaxed">
+          Search, configure, and generate a persistent share link for the room.
+        </div>
+
+        {!currentUser && (
+          <div className="mt-6 rounded-3xl border border-dashed border-border/30 bg-card/20 p-6">
+            <div className="text-sm font-black uppercase tracking-[0.35em] text-primary">
+              Sign In Required
+            </div>
+            <div className="mt-3 text-sm text-muted-foreground leading-relaxed">
+              Room creation uses your saved account so the owner, avatar, and
+              share link stay consistent across the main app and theatre.
+            </div>
+            <button
+              onClick={() => window.location.assign(`${webMainUrl}/login`)}
+              className="mt-5 rounded-full bg-primary px-5 py-3 text-[10px] font-black uppercase tracking-[0.35em] text-primary-foreground"
+            >
+              Open Login
+            </button>
+          </div>
+        )}
+
+        {currentUser && !createdRoom && (
+          <>
+            <div className="mt-4 flex gap-3 items-center">
+              <input
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search movie name (e.g., Interstellar)"
+                className="flex-1 bg-background/40 border border-border/20 rounded-full px-5 py-3 text-foreground placeholder:text-muted-foreground outline-none"
+              />
+              <button
+                className="px-6 py-3 rounded-full bg-primary text-primary-foreground font-black uppercase tracking-widest disabled:opacity-50"
+                disabled={!searchTerm.trim() || status === "loading"}
+                onClick={() => doSearch(searchTerm.trim())}
+              >
+                Search
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+              <div>
+                {status === "loading" && (
+                  <div className="text-white/70">Searching...</div>
+                )}
+                {status === "error" && errorText && (
+                  <div className="text-red-300/90 font-bold">{errorText}</div>
+                )}
+                {status === "ready" && results.length === 0 && (
+                  <div className="text-white/70">No results.</div>
+                )}
+
+                {status === "ready" && results.length > 0 && (
+                  <div className="grid gap-3">
+                    {results.slice(0, 10).map((result) => (
+                      <button
+                        key={result.tmdb_id}
+                        className={`text-left rounded-[var(--radius)] border p-3 transition-colors ${
+                          selectedMovie?.tmdb_id === result.tmdb_id
+                            ? "border-primary/60 bg-card/70"
+                            : "bg-card/50 border-border/10 hover:border-primary/40"
+                        }`}
+                        onClick={() => {
+                          setSelectedMovie(result);
+                          setRoomLabel(`${result.title} Watch Party`);
+                          setCreatedRoom(null);
+                        }}
+                      >
+                        <div className="flex gap-3 items-center">
+                          {result.images?.poster && (
+                            <img
+                              src={result.images.poster}
+                              alt={result.title}
+                              className="w-12 h-16 object-cover rounded-md"
+                            />
+                          )}
+                          <div className="flex-1">
+                            <div className="font-black">{result.title}</div>
+                            <div className="text-xs text-muted-foreground">
+                              Score: {result.metrics?.vote_average ?? "N/A"}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-[var(--radius)] border border-border/20 bg-card/20 p-5">
+                <div className="text-sm font-black uppercase tracking-[0.35em] text-primary">
+                  Configure
+                </div>
+
+                {selectedMovie ? (
+                  <div className="mt-5 space-y-4">
+                    <div>
+                      <div className="font-black text-lg">
+                        {selectedMovie.title}
+                      </div>
+                      <div className="mt-1 text-sm text-muted-foreground">
+                        TMDB score{" "}
+                        {selectedMovie.metrics?.vote_average ?? "N/A"}
+                      </div>
+                    </div>
+                    <input
+                      value={roomLabel}
+                      onChange={(event) => setRoomLabel(event.target.value)}
+                      placeholder="Room label"
+                      className="w-full rounded-xl border border-border/20 bg-background/30 px-4 py-3 outline-none"
+                    />
+                    <select
+                      value={visibility}
+                      onChange={(event) =>
+                        setVisibility(
+                          event.target.value as "private" | "public",
+                        )
+                      }
+                      className="w-full rounded-xl border border-border/20 bg-background/30 px-4 py-3 outline-none"
+                    >
+                      <option value="private">Private</option>
+                      <option value="public">Public</option>
+                    </select>
+                    <input
+                      type="number"
+                      min={2}
+                      max={50}
+                      value={maxParticipants}
+                      onChange={(event) =>
+                        setMaxParticipants(Number(event.target.value))
+                      }
+                      className="w-full rounded-xl border border-border/20 bg-background/30 px-4 py-3 outline-none"
+                    />
+                    <label className="flex items-center gap-3 text-sm text-foreground">
+                      <input
+                        type="checkbox"
+                        checked={aiMode}
+                        onChange={(event) => setAiMode(event.target.checked)}
+                      />
+                      Launch as AI room
+                    </label>
+                    <button
+                      onClick={createRoom}
+                      disabled={creating}
+                      className="w-full rounded-full bg-primary px-5 py-3 text-[10px] font-black uppercase tracking-[0.35em] text-primary-foreground disabled:opacity-60"
+                    >
+                      {creating ? "Creating..." : "Create Share Link"}
+                    </button>
+                    {errorText && (
+                      <div className="text-sm text-red-300/90">{errorText}</div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-5 text-sm text-muted-foreground leading-relaxed">
+                    Pick a movie from the search results to configure the room.
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {currentUser && createdRoom && (
+          <div className="mt-8 rounded-[var(--radius)] border border-primary/20 bg-primary/5 p-6">
+            <div className="text-primary text-[10px] font-black uppercase tracking-[0.35em]">
+              Share Link Ready
+            </div>
+            <div className="mt-4 break-all text-lg text-foreground">
+              {createdRoom.shareLink}
+            </div>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                onClick={() =>
+                  navigator.clipboard.writeText(createdRoom.shareLink)
+                }
+                className="rounded-full border border-border/20 px-5 py-3 text-[10px] font-black uppercase tracking-[0.3em]"
+              >
+                Copy Link
+              </button>
+              <button
+                onClick={() =>
+                  onCreate(
+                    createdRoom.room.roomId,
+                    createdRoom.room.movieTmdbId,
+                    createdRoom.room.aiMode,
+                  )
+                }
+                className="rounded-full bg-primary px-5 py-3 text-[10px] font-black uppercase tracking-[0.3em] text-primary-foreground"
+              >
+                Enter Room
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** Slim red toast at the top when mouse is NOT locked. No blocking overlay. */
+function GuidedEnterOverlay({
+  controlsApiRef,
+}: {
+  controlsApiRef: React.MutableRefObject<any | null>;
+}) {
+  const [locked, setLocked] = useState(false);
+  useEffect(() => {
+    const t = window.setInterval(() => {
+      setLocked(Boolean(controlsApiRef.current?.isLocked));
+    }, 200);
+    return () => window.clearInterval(t);
+  }, [controlsApiRef]);
+
+  return (
+    <div
+      style={{
+        pointerEvents: locked ? "none" : "auto",
+        opacity: locked ? 0 : 1,
+        transition: "opacity 0.3s ease",
+      }}
+      className="absolute top-4 left-1/2 -translate-x-1/2 z-[250] flex items-center gap-2 px-5 py-2.5 rounded-full bg-amber-600/40 border border-amber-400/30 backdrop-blur-sm shadow-lg cursor-pointer select-none"
+      onClick={() => !locked && controlsApiRef.current?.lock?.()}
+    >
+      <span className="text-amber-50 text-sm font-bold tracking-wide">
+        🖱 Click to walk — WASD to move
+      </span>
+    </div>
+  );
+}
+
 function EnterOverlay({
   controlsApiRef,
 }: {
@@ -1565,6 +3088,20 @@ function EnterOverlay({
     </div>
   );
 }
+
+const legacySpaceComponents = [
+  TrailerModal,
+  MovieInfoOverlay,
+  CommentsOverlay,
+  ContextualCommentsOverlay,
+  RoomCommentsOverlay,
+  RoomAIChatOverlay,
+  VoteDock,
+  WorldFPS,
+  CreateRoomOverlay,
+  EnterOverlay,
+];
+void legacySpaceComponents;
 
 /** Bottom-centre toast that shows a key hint when near a zone. */
 function ProximityToast({ nearZone }: { nearZone: ZoneId | null }) {
@@ -1599,6 +3136,7 @@ export const Space = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   // Add this ref in Space component body
   const tvOverlayRef = useRef<HTMLDivElement>(null);
+  const aiRoomMode = searchParams.get("ai") === "1";
   const movieId = useMemo(() => {
     const v = searchParams.get("movieId");
     if (!v) return null;
@@ -1612,9 +3150,23 @@ export const Space = () => {
   }, [searchParams]);
 
   const { movie } = useMovieDetails(movieId);
-  const videoUrl = movie?.video?.url
-    ? toYouTubeEmbed(movie.video.url)
-    : undefined;
+  const availableVideos = useMemo(() => {
+    const rawVideos =
+      movie?.videos && movie.videos.length > 0
+        ? movie.videos
+        : movie?.video
+          ? [movie.video]
+          : [];
+
+    const deduped = new Map<string, MovieVideo>();
+
+    rawVideos.forEach((video) => {
+      if (!video?.key || deduped.has(video.key)) return;
+      deduped.set(video.key, video);
+    });
+
+    return Array.from(deduped.values());
+  }, [movie]);
 
   const mode: Mode = useMemo(() => {
     if (roomId && movieId) return "watchparty";
@@ -1625,6 +3177,12 @@ export const Space = () => {
   const [activeOverlay, setActiveOverlay] = useState<OverlayId>(null);
   const [trailerPlaying, setTrailerPlaying] = useState(true);
   const [trailerTime, setTrailerTime] = useState(0);
+  const [selectedVideoKey, setSelectedVideoKey] = useState<string | null>(null);
+  const [cachedAvatarId, setCachedAvatarId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSelectedVideoKey(movie?.video?.key ?? null);
+  }, [movie?.tmdb_id, movie?.video?.key]);
 
   const handleSyncTrailer = useCallback((playing: boolean, time: number) => {
     setTrailerPlaying(playing);
@@ -1643,14 +3201,47 @@ export const Space = () => {
   const playerRef = useRef({ x: 0, y: PLAYER_Y, z: 0, yaw: 0 });
   const nearZoneRef = useRef<ZoneId | null>(null);
 
-  const [guests, setGuests] = useState<
-    Array<{ peerId: string; x: number; y: number; z: number; yaw: number }>
-  >([]);
+  const [guests, setGuests] = useState<GuestPresence[]>([]);
 
   const [nearZone, setNearZone] = useState<ZoneId | null>(null);
+  const [viewer, setViewer] = useState<ViewerUser | null>(null);
+  const initializedAiOverlayRef = useRef(false);
 
   const movementEnabled = mode !== "create-room" && !activeOverlay;
   const overlayOpen = Boolean(activeOverlay);
+
+  useEffect(() => {
+    const storedAvatar = window.localStorage.getItem("metaverse-room-avatar");
+    if (storedAvatar) {
+      setCachedAvatarId(storedAvatar);
+    }
+
+    apiGet<ApiResponse<{ user: ViewerUser }>>("/users/me")
+      .then((response) => {
+        setViewer(response.data.user);
+        if (response.data.user.avatar) {
+          window.localStorage.setItem(
+            "metaverse-room-avatar",
+            response.data.user.avatar,
+          );
+          setCachedAvatarId(response.data.user.avatar);
+        }
+      })
+      .catch(() => setViewer(null));
+  }, []);
+
+  useEffect(() => {
+    if (
+      !aiRoomMode ||
+      mode !== "watchparty" ||
+      initializedAiOverlayRef.current
+    ) {
+      return;
+    }
+
+    initializedAiOverlayRef.current = true;
+    setActiveOverlay("ai");
+  }, [aiRoomMode, mode]);
 
   const onZoneKey = useCallback(
     (zone: ZoneId) => {
@@ -1687,11 +3278,17 @@ export const Space = () => {
   }, [activeOverlay, mode]);
 
   const createRoom = useCallback(
-    (newRoomId: string, newMovieId: number) => {
-      setSearchParams({
+    (newRoomId: string, newMovieId: number, newAiMode: boolean) => {
+      const nextParams = new URLSearchParams({
         roomId: newRoomId,
         movieId: String(newMovieId),
       });
+
+      if (newAiMode) {
+        nextParams.set("ai", "1");
+      }
+
+      setSearchParams(nextParams);
       setActiveOverlay(null);
       setGuests([]);
     },
@@ -1699,12 +3296,8 @@ export const Space = () => {
   );
 
   const world = (
-    <Canvas
-      shadows
-      camera={{ position: [0, PLAYER_Y, 5], fov: 70 }}
-      style={{ width: "100%", height: "100%" }}
-    >
-      <WorldFPS
+    <>
+      <CinemaScene
         movementEnabled={movementEnabled}
         overlayOpen={overlayOpen}
         onZoneKey={onZoneKey}
@@ -1713,88 +3306,88 @@ export const Space = () => {
         playerRef={playerRef}
         nearZoneRef={nearZoneRef}
         onNearZoneChange={setNearZone}
-        videoUrl={videoUrl}
-        isPlaying={trailerPlaying}
-        trailerTime={trailerTime}
         tvOverlayRef={tvOverlayRef}
+        guests={mode === "watchparty" ? guests : []}
       />
 
-      {/* Guests (multiplayer only) */}
-      {mode === "watchparty" &&
-        guests.map((g) => (
-          <GuestBox key={g.peerId} x={g.x} y={g.y} z={g.z} yaw={g.yaw} />
-        ))}
-
-      {/* (placeholder) Broadcast + receive avatar state */}
       {mode === "watchparty" && roomId && (
         <WatchPartyAvatars
           roomId={roomId}
           playerRef={playerRef}
           setGuests={setGuests}
+          avatarId={viewer?.avatar || cachedAvatarId}
         />
       )}
-    </Canvas>
+    </>
   );
-
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const embedSrc = videoUrl ? toYouTubeEmbedSrc(videoUrl, origin) : "";
-
-  // Keep iframe play/pause in sync
-  useEffect(() => {
-    const cw = iframeRef.current?.contentWindow;
-    if (!cw || !embedSrc) return;
-    cw.postMessage(
-      JSON.stringify({
-        event: "command",
-        func: trailerPlaying ? "playVideo" : "pauseVideo",
-        args: [],
-      }),
-      "*",
-    );
-  }, [trailerPlaying, embedSrc]);
-
-  const watchpartyShell =
-    mode === "watchparty" && roomId && movieId ? (
-      <SocketProvider enabled>
-        {world}
-        <WatchPartyMediaBar
-          roomId={roomId}
-          onSyncTrailer={handleSyncTrailer}
-          onSyncModal={handleSyncModal}
-        />
-      </SocketProvider>
-    ) : (
-      world
-    );
 
   // Create-room UX: show dialog before entering the room (no Canvas/pointer lock yet).
   if (mode === "create-room") {
     return (
       <div className="relative w-screen h-screen bg-neutral-900 overflow-hidden flex items-center justify-center">
-        <CreateRoomOverlay onCreate={createRoom} />
+        <PersistentCreateRoomOverlay
+          currentUser={viewer}
+          onCreate={createRoom}
+        />
       </div>
     );
   }
 
-  return (
+  const pageContent = (
     <div className="relative w-screen h-screen bg-neutral-900 overflow-hidden">
-      {watchpartyShell}
-      {activeOverlay === "trailer" && videoUrl && (
-        <TrailerModal videoUrl={videoUrl} onClose={onCloseOverlay} />
+      {world}
+      {mode === "watchparty" && roomId && (
+        <>
+          <WatchPartyMediaBar
+            roomId={roomId}
+            onSyncTrailer={handleSyncTrailer}
+            onSyncModal={handleSyncModal}
+          />
+          <RoomChatDrawer
+            visible={activeOverlay === null}
+            currentUser={viewer}
+          />
+        </>
       )}
-      <EnterOverlay controlsApiRef={controlsApiRef} />
+      {activeOverlay === "trailer" && (
+        <SyncedTrailerModal
+          movieTitle={movie?.title}
+          videos={availableVideos}
+          selectedVideoKey={selectedVideoKey}
+          onSelectVideo={setSelectedVideoKey}
+          onClose={onCloseOverlay}
+          playing={trailerPlaying}
+          syncedTime={trailerTime}
+          watchparty={mode === "watchparty"}
+        />
+      )}
+      <GuidedEnterOverlay controlsApiRef={controlsApiRef} />
       <ProximityToast nearZone={nearZone} />
 
       {movieId && activeOverlay === "info" && (
-        <MovieInfoOverlay movieId={movieId} onClose={onCloseOverlay} />
+        <RichMovieInfoOverlay movieId={movieId} onClose={onCloseOverlay} />
       )}
-      {activeOverlay === "comments" && (
-        <CommentsOverlay onClose={onCloseOverlay} />
+      {movieId && activeOverlay === "comments" && (
+        <PersistentMovieCommentsOverlay
+          movieId={movieId}
+          onClose={onCloseOverlay}
+          currentUser={viewer}
+        />
       )}
       {activeOverlay === "ai" && (
-        <AIChatOverlay mode={mode} onClose={onCloseOverlay} />
+        <RoomAiExperienceOverlay
+          movieId={movieId}
+          movieTitle={movie?.title}
+          currentUser={viewer}
+          onClose={onCloseOverlay}
+        />
       )}
     </div>
   );
+
+  if (mode === "watchparty" && roomId) {
+    return <SocketProvider enabled>{pageContent}</SocketProvider>;
+  }
+
+  return pageContent;
 };

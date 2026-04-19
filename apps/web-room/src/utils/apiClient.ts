@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
-const DEFAULT_HTTP_SERVER_URL = "http://localhost:8001";
+// const DEFAULT_HTTP_SERVER_URL = "http://localhost:3002";
 
 const httpServerUrl =
-  import.meta.env.VITE_HTTP_SERVER_URL || DEFAULT_HTTP_SERVER_URL;
+  import.meta.env.VITE_HTTP_SERVER_URL;
 
 const apiBaseUrl = `${httpServerUrl.replace(/\/$/, "")}/api/v1`;
 
@@ -19,6 +19,7 @@ export async function apiRequest<T>(
   },
 ): Promise<T> {
   const method = opts?.method ?? "GET";
+  const isFormData = opts?.body instanceof FormData;
 
   const queryString =
     opts?.query &&
@@ -34,11 +35,17 @@ export async function apiRequest<T>(
 
   const res = await fetch(url, {
     method,
+    credentials: "include",
     headers: {
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(opts?.headers ?? {}),
     },
-    body: opts?.body !== undefined ? JSON.stringify(opts.body) : undefined,
+    body:
+      opts?.body !== undefined
+        ? isFormData
+          ? opts.body
+          : JSON.stringify(opts.body)
+        : undefined,
     signal: opts?.signal,
   });
 
@@ -60,4 +67,7 @@ export const apiGet = <T,>(path: string, query?: Record<string, any>) =>
 
 export const apiPost = <T,>(path: string, body?: any) =>
   apiRequest<T>(path, { method: "POST", body });
+
+export const apiPatch = <T,>(path: string, body?: any) =>
+  apiRequest<T>(path, { method: "PATCH", body });
 

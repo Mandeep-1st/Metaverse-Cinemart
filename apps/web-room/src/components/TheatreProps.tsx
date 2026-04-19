@@ -23,6 +23,40 @@ const CARPET_COLOR = "#1A0A0A";
 
 // ─── BigTV ────────────────────────────────────────────────────────────────
 export function BigTV({ position, rotation = [0, 0, 0], isActive }: PropProps) {
+  const screenRef = useRef<THREE.MeshStandardMaterial>(null);
+  const stripRef = useRef<THREE.MeshStandardMaterial>(null);
+  const glowLightRef = useRef<THREE.PointLight>(null);
+
+  useFrame((_, delta) => {
+    const screenTarget = isActive ? 1.25 : 0.18;
+    const stripTarget = isActive ? 1.75 : 0.15;
+    const lightTarget = isActive ? 2.8 : 0.3;
+
+    if (screenRef.current) {
+      screenRef.current.emissiveIntensity = THREE.MathUtils.lerp(
+        screenRef.current.emissiveIntensity,
+        screenTarget,
+        1 - Math.exp(-delta * 4.5),
+      );
+    }
+
+    if (stripRef.current) {
+      stripRef.current.emissiveIntensity = THREE.MathUtils.lerp(
+        stripRef.current.emissiveIntensity,
+        stripTarget,
+        1 - Math.exp(-delta * 4.5),
+      );
+    }
+
+    if (glowLightRef.current) {
+      glowLightRef.current.intensity = THREE.MathUtils.lerp(
+        glowLightRef.current.intensity,
+        lightTarget,
+        1 - Math.exp(-delta * 4.5),
+      );
+    }
+  });
+
   return (
     <group position={position} rotation={rotation}>
       {/* Back panel */}
@@ -39,22 +73,21 @@ export function BigTV({ position, rotation = [0, 0, 0], isActive }: PropProps) {
       <mesh position={[0, 4.0, -0.18]}>
         <boxGeometry args={[24, 13, 0.05]} />
         <meshStandardMaterial
+          ref={screenRef}
           color={isActive ? "#1a1a3a" : "#050508"}
           emissive={isActive ? "#3a3aff" : "#080818"}
-          emissiveIntensity={isActive ? 1.2 : 0.15}
+          emissiveIntensity={0.18}
           toneMapped={false}
         />
       </mesh>
-      {/* Screen glow */}
-      {isActive && (
-        <pointLight
-          position={[0, 4.0, 1]}
-          color="#4444ff"
-          intensity={3}
-          distance={20}
-          decay={2}
-        />
-      )}
+      <pointLight
+        ref={glowLightRef}
+        position={[0, 4.0, 1]}
+        color="#4444ff"
+        intensity={0.3}
+        distance={20}
+        decay={2}
+      />
       {/* Stand neck */}
       <mesh position={[0, -2.5, -0.3]} castShadow>
         <boxGeometry args={[1.2, 4, 0.4]} />
@@ -87,9 +120,10 @@ export function BigTV({ position, rotation = [0, 0, 0], isActive }: PropProps) {
       <mesh position={[0, -4.45, 0.8]}>
         <boxGeometry args={[27, 0.08, 0.1]} />
         <meshStandardMaterial
+          ref={stripRef}
           color="#fff"
           emissive={isActive ? "#ff4a4a" : "#000"}
-          emissiveIntensity={isActive ? 2 : 0}
+          emissiveIntensity={0.15}
           toneMapped={false}
         />
       </mesh>
@@ -202,6 +236,27 @@ export function ChairsAndPeople({
   rotation = [0, 0, 0],
   isActive,
 }: PropProps) {
+  const ringRef = useRef<THREE.MeshStandardMaterial>(null);
+  const lightRef = useRef<THREE.PointLight>(null);
+
+  useFrame((_, delta) => {
+    if (ringRef.current) {
+      ringRef.current.emissiveIntensity = THREE.MathUtils.lerp(
+        ringRef.current.emissiveIntensity,
+        isActive ? 1.9 : 0.25,
+        1 - Math.exp(-delta * 4.5),
+      );
+    }
+
+    if (lightRef.current) {
+      lightRef.current.intensity = THREE.MathUtils.lerp(
+        lightRef.current.intensity,
+        isActive ? 1.2 : 0.18,
+        1 - Math.exp(-delta * 4.5),
+      );
+    }
+  });
+
   return (
     <group position={position} rotation={rotation}>
       {/* Raised platform */}
@@ -218,9 +273,10 @@ export function ChairsAndPeople({
       <mesh position={[0, -0.9, 0]}>
         <torusGeometry args={[4.3, 0.05, 8, 64]} />
         <meshStandardMaterial
+          ref={ringRef}
           color="#fff"
           emissive={isActive ? "#ff4a4a" : "#330000"}
-          emissiveIntensity={isActive ? 2 : 0.2}
+          emissiveIntensity={0.25}
           toneMapped={false}
         />
       </mesh>
@@ -231,15 +287,14 @@ export function ChairsAndPeople({
       <CinemaSeat position={[1.6, -0.8, 0.2]} occupied personColor="#f5b942" />
 
       {/* Ambient glow underneath when active */}
-      {isActive && (
-        <pointLight
-          position={[0, 0, 0]}
-          color="#ff4a4a"
-          intensity={1.5}
-          distance={8}
-          decay={2}
-        />
-      )}
+      <pointLight
+        ref={lightRef}
+        position={[0, 0, 0]}
+        color="#ff4a4a"
+        intensity={0.18}
+        distance={8}
+        decay={2}
+      />
     </group>
   );
 }
@@ -311,6 +366,36 @@ export function Cupboards({
   rotation = [0, 0, 0],
   isActive,
 }: PropProps) {
+  const baseGlowRef = useRef<THREE.MeshStandardMaterial>(null);
+  const underCabinetRef = useRef<THREE.MeshStandardMaterial>(null);
+  const lightRef = useRef<THREE.PointLight>(null);
+
+  useFrame((_, delta) => {
+    if (baseGlowRef.current) {
+      baseGlowRef.current.emissiveIntensity = THREE.MathUtils.lerp(
+        baseGlowRef.current.emissiveIntensity,
+        isActive ? 1.8 : 0.18,
+        1 - Math.exp(-delta * 4.5),
+      );
+    }
+
+    if (underCabinetRef.current) {
+      underCabinetRef.current.emissiveIntensity = THREE.MathUtils.lerp(
+        underCabinetRef.current.emissiveIntensity,
+        isActive ? 1.45 : 0.12,
+        1 - Math.exp(-delta * 4.5),
+      );
+    }
+
+    if (lightRef.current) {
+      lightRef.current.intensity = THREE.MathUtils.lerp(
+        lightRef.current.intensity,
+        isActive ? 1.4 : 0.18,
+        1 - Math.exp(-delta * 4.5),
+      );
+    }
+  });
+
   return (
     <group position={position} rotation={rotation}>
       {/* Floor mat */}
@@ -322,9 +407,10 @@ export function Cupboards({
       <mesh position={[0, -0.88, 1.2]}>
         <boxGeometry args={[7.5, 0.04, 0.06]} />
         <meshStandardMaterial
+          ref={baseGlowRef}
           color="#fff"
           emissive={isActive ? "#ff4a4a" : "#110000"}
-          emissiveIntensity={isActive ? 2 : 0.15}
+          emissiveIntensity={0.18}
           toneMapped={false}
         />
       </mesh>
@@ -349,22 +435,22 @@ export function Cupboards({
       <mesh position={[0, -0.52, 0.46]}>
         <boxGeometry args={[7.0, 0.04, 0.04]} />
         <meshStandardMaterial
+          ref={underCabinetRef}
           color="#fff"
           emissive={isActive ? "#ffddaa" : "#221100"}
-          emissiveIntensity={isActive ? 1.5 : 0.1}
+          emissiveIntensity={0.12}
           toneMapped={false}
         />
       </mesh>
 
-      {isActive && (
-        <pointLight
-          position={[0, 1, 1.5]}
-          color="#ffddaa"
-          intensity={1.5}
-          distance={8}
-          decay={2}
-        />
-      )}
+      <pointLight
+        ref={lightRef}
+        position={[0, 1, 1.5]}
+        color="#ffddaa"
+        intensity={0.18}
+        distance={8}
+        decay={2}
+      />
     </group>
   );
 }

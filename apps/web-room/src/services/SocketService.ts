@@ -30,7 +30,14 @@ class SocketService {
     private avatarStateHelper: ((data: any) => void)[] = [];
     private peerLeftHelper: ((data: any) => void)[] = [];
     private trailerStateHelper: ((data: any) => void)[] = [];
+    private roomBootstrapHelper: ((data: any) => void)[] = [];
+    private chatMessageHelper: ((data: any) => void)[] = [];
+    private chatLikeHelper: ((data: any) => void)[] = [];
+    private voteStateHelper: ((data: any) => void)[] = [];
     private lastTrailerState: any | null = null;
+    private lastRoomBootstrap: any | null = null;
+    private lastVoteState: any[] = [];
+    private lastChatMessages: any[] = [];
 
     public connect(url: string): void {
         if (this.socket) return;
@@ -59,6 +66,36 @@ class SocketService {
                             this.trailerStateHelper.forEach(cb => cb((msg as any).trailerState));
                         }
                         this.existingProducersHelper.forEach(cb => cb(msg.data));
+                    } else if (msg.type === "room-bootstrap") {
+                        this.lastRoomBootstrap = msg.data ?? null;
+                        this.lastChatMessages = msg.data?.chatMessages ?? [];
+                        this.lastVoteState = msg.data?.voteState ?? [];
+                        this.roomBootstrapHelper.forEach(cb => cb(msg.data));
+                    } else if (msg.type === "chat-message") {
+                        this.lastChatMessages = [...this.lastChatMessages, msg.data];
+                        if (this.lastRoomBootstrap) {
+                            this.lastRoomBootstrap = {
+                                ...this.lastRoomBootstrap,
+                                chatMessages: this.lastChatMessages,
+                            };
+                        }
+                        this.chatMessageHelper.forEach(cb => cb(msg.data));
+                    } else if (msg.type === "chat-message-liked") {
+                        this.lastChatMessages = this.lastChatMessages.map((message) =>
+                            message.id === msg.data?.messageId
+                                ? { ...message, likes: msg.data?.likes ?? message.likes }
+                                : message,
+                        );
+                        if (this.lastRoomBootstrap) {
+                            this.lastRoomBootstrap = {
+                                ...this.lastRoomBootstrap,
+                                chatMessages: this.lastChatMessages,
+                            };
+                        }
+                        this.chatLikeHelper.forEach(cb => cb(msg.data));
+                    } else if (msg.type === "vote-state") {
+                        this.lastVoteState = msg.data ?? [];
+                        this.voteStateHelper.forEach(cb => cb(msg.data));
                     } else if (msg.type === "new-producer") {
                         this.newProducerArrivesHelper.forEach(cb => cb(msg.data));
                     } else if (msg.type === "producer-closed") {
@@ -142,6 +179,40 @@ class SocketService {
         }
         return () => {
             this.trailerStateHelper = this.trailerStateHelper.filter((fn) => fn !== cb);
+        };
+    }
+
+    public onRoomBootstrap(cb: (data: any) => void) {
+        this.roomBootstrapHelper.push(cb);
+        if (this.lastRoomBootstrap) {
+            window.setTimeout(() => cb(this.lastRoomBootstrap), 0);
+        }
+        return () => {
+            this.roomBootstrapHelper = this.roomBootstrapHelper.filter((fn) => fn !== cb);
+        };
+    }
+
+    public onChatMessage(cb: (data: any) => void) {
+        this.chatMessageHelper.push(cb);
+        return () => {
+            this.chatMessageHelper = this.chatMessageHelper.filter((fn) => fn !== cb);
+        };
+    }
+
+    public onChatMessageLiked(cb: (data: any) => void) {
+        this.chatLikeHelper.push(cb);
+        return () => {
+            this.chatLikeHelper = this.chatLikeHelper.filter((fn) => fn !== cb);
+        };
+    }
+
+    public onVoteState(cb: (data: any[]) => void) {
+        this.voteStateHelper.push(cb);
+        if (this.lastVoteState.length > 0) {
+            window.setTimeout(() => cb(this.lastVoteState), 0);
+        }
+        return () => {
+            this.voteStateHelper = this.voteStateHelper.filter((fn) => fn !== cb);
         };
     }
 

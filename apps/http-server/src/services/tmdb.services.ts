@@ -26,6 +26,34 @@ export class TMDBService {
         }
     }
 
+    private static buildVideoLinks(video: any) {
+        const key = String(video?.key ?? "");
+        const site = String(video?.site ?? "");
+
+        if (!key || !site) {
+            return { url: "", embedUrl: "" };
+        }
+
+        if (site === "YouTube") {
+            return {
+                url: `https://www.youtube.com/watch?v=${key}`,
+                embedUrl: `https://www.youtube.com/embed/${key}`,
+            };
+        }
+
+        if (site === "Vimeo") {
+            return {
+                url: `https://vimeo.com/${key}`,
+                embedUrl: `https://player.vimeo.com/video/${key}`,
+            };
+        }
+
+        return {
+            url: key,
+            embedUrl: "",
+        };
+    }
+
     // 1. Seeder - Returns number of movies ingested
     static async seedPopularMovies(pages: number = 10): Promise<number> {
         console.log("Bulk seeding started.")
@@ -52,6 +80,40 @@ export class TMDBService {
         }
         console.log(`Seeding Complete! Total Movies: ${totalIngested}`);
         return totalIngested;
+    }
+
+    static async discoverMovies(category: string = "popular", page: number = 1) {
+        const normalizedCategory = category === "top_rated" ? "top_rated" : "popular";
+        const response = await axios.get(
+            `${TMDB_BASE_URL}/movie/${normalizedCategory}`,
+            this.getOptions({ page })
+        );
+
+        const movies = response.data.results || [];
+
+        Promise.all(movies.slice(0, 12).map((m: any) => this.fetchAndIngestMovie(m.id)))
+            .catch((error: any) => console.error("Error ingesting discover results", error));
+
+        return movies.map((m: any) => ({
+            tmdb_id: m.id,
+            title: m.title,
+            overview: m.overview,
+            images: {
+                poster: m.poster_path
+                    ? `https://image.tmdb.org/t/p/original${m.poster_path}`
+                    : null,
+                backdrop: m.backdrop_path
+                    ? `https://image.tmdb.org/t/p/original${m.backdrop_path}`
+                    : null,
+            },
+            metrics: {
+                vote_average: m.vote_average,
+                popularity: m.popularity,
+            },
+            details: {
+                release_date: m.release_date,
+            },
+        }));
     }
 
     // 2. While Searching Checks DB first, then TMDB
@@ -83,10 +145,19 @@ export class TMDBService {
         }));
     }
 
-    static async getMovieOrFetch(tmdbId: string) {
+    static async getMovieOrFetch(tmdbId: string | number) {
         // A. Check DB
-        const existingMovie = await MovieModel.findOne({ tmdb_id: tmdbId });
+        const normalizedId = Number(tmdbId);
+        const existingMovie = await MovieModel.findOne({
+            tmdb_id: Number.isNaN(normalizedId) ? tmdbId : normalizedId
+        });
         if (existingMovie) {
+            if (typeof (existingMovie as any).videos === "undefined") {
+                const refreshedMovie = await this.fetchAndIngestMovie(
+                    Number.isNaN(normalizedId) ? tmdbId : normalizedId,
+                );
+                return refreshedMovie || existingMovie;
+            }
             console.log("Movie should exist")
             return existingMovie;
         }
@@ -94,6 +165,39 @@ export class TMDBService {
         // B. If Not in DB? Fetch, Ingest.
         console.log("Movie not in DB. Fetching from TMDB......");
         return await this.fetchAndIngestMovie(tmdbId);
+    }
+
+    static async getRelatedMovies(tmdbId: string | number, limit: number = 12) {
+        const response = await axios.get(
+            `${TMDB_BASE_URL}/movie/${tmdbId}/recommendations`,
+            this.getOptions()
+        );
+
+        const movies = (response.data.results || []).slice(0, limit);
+
+        Promise.all(movies.map((movie: any) => this.fetchAndIngestMovie(movie.id)))
+            .catch((error: any) => console.error("Error ingesting related movies", error));
+
+        return movies.map((m: any) => ({
+            tmdb_id: m.id,
+            title: m.title,
+            overview: m.overview,
+            images: {
+                poster: m.poster_path
+                    ? `https://image.tmdb.org/t/p/original${m.poster_path}`
+                    : null,
+                backdrop: m.backdrop_path
+                    ? `https://image.tmdb.org/t/p/original${m.backdrop_path}`
+                    : null,
+            },
+            metrics: {
+                vote_average: m.vote_average,
+                popularity: m.popularity,
+            },
+            details: {
+                release_date: m.release_date,
+            },
+        }));
     }
 
     private static async fetchAndIngestMovie(tmdbId: string | number) {
@@ -150,7 +254,30 @@ export class TMDBService {
 
     private static transformData(data: any) {
         const IMAGE_BASE_URL = "https://image.tmdb.org/t/p/original"; // High quality
-        const YOUTUBE_BASE_URL = "https://www.youtube.com/watch?v=";
+        const playableVideos = (data.videos?.results || [])
+            .map((video: any) => {
+                const links = this.buildVideoLinks(video);
+
+                if (!links.url) {
+                    return null;
+                }
+
+                return {
+                    key: video.key,
+                    url: links.url,
+                    embedUrl: links.embedUrl || undefined,
+                    site: video.site,
+                    name: video.name,
+                    type: video.type,
+                    official: video.official,
+                    published_at: video.published_at,
+                };
+            })
+            .filter(Boolean);
+
+        const explicitTrailer = playableVideos.find(
+            (video: any) => String(video?.type ?? "").toLowerCase() === "trailer",
+        );
 
         return {
             tmdb_id: data.id,
@@ -163,11 +290,8 @@ export class TMDBService {
                     ? `${IMAGE_BASE_URL}${data.images.logos[0].file_path}`
                     : null
             },
-            video: data.videos?.results?.[0] ? {
-                key: data.videos.results[0].key,
-                url: `${YOUTUBE_BASE_URL}${data.videos.results[0].key}`,
-                site: data.videos.results[0].site
-            } : undefined,
+            video: explicitTrailer,
+            videos: playableVideos,
 
             genres: data.genres || [],
             keywords: data.keywords?.keywords || [],

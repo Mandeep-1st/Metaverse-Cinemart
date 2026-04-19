@@ -1,70 +1,362 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../components/home/Navbar";
-import MovieHero from "../components/home/MovieHero";
-import MovieCarousel from "../components/home/MovieCarousel";
+import MovieHero, { type HeroMovie } from "../components/home/MovieHero";
+import MovieCarousel, {
+  type CarouselMovie,
+} from "../components/home/MovieCarousel";
+import LoadingScreen from "../components/common/LoadingScreen";
+import { useAuth } from "../context/AuthContext";
+import { apiGet, apiPatch, apiPost } from "../utils/apiClient";
 
-const TRENDING_MOVIES = [
-  { id: 1, title: "Dune: Part Two", rating: "8.9", year: "2024", img: "https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=500&auto=format&fit=crop" },
-  { id: 2, title: "Oppenheimer", rating: "8.4", year: "2023", img: "https://images.unsplash.com/photo-1478720568477-152d9b164e26?q=80&w=500&auto=format&fit=crop" },
-  { id: 3, title: "The Batman", rating: "7.8", year: "2022", img: "https://images.unsplash.com/photo-1531259683007-016a7b628fc3?q=80&w=500&auto=format&fit=crop" },
-  { id: 4, title: "Interstellar", rating: "8.7", year: "2014", img: "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?q=80&w=500&auto=format&fit=crop" },
-  { id: 5, title: "Blade Runner", rating: "8.0", year: "2017", img: "https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=500&auto=format&fit=crop" },
-  { id: 6, title: "Spider-Man", rating: "8.6", year: "2023", img: "https://images.unsplash.com/photo-1612036782180-6f0b6cd846fe?q=80&w=500&auto=format&fit=crop" },
-  { id: 7, title: "The Joker", rating: "8.4", year: "2019", img: "https://images.unsplash.com/photo-1509248961158-e54f6934749c?q=80&w=500&auto=format&fit=crop" },
-  { id: 8, title: "Avatar 2", rating: "7.5", year: "2022", img: "https://images.unsplash.com/photo-1501533530136-197496662dd6?q=80&w=500&auto=format&fit=crop" },
-  { id: 9, title: "Gladiator", rating: "8.5", year: "2000", img: "https://images.unsplash.com/photo-1559584839-994c6f37f374?q=80&w=500&auto=format&fit=crop" },
-  { id: 10, title: "Inception", rating: "8.8", year: "2010", img: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?q=80&w=500&auto=format&fit=crop" }
-];
+type ApiResponse<T> = {
+  statusCode: number;
+  success: boolean;
+  message: string;
+  data: T;
+};
 
-const TOP_RATED_MOVIES = [
-  { id: 11, title: "The Matrix", rating: "8.7", year: "1999", img: "https://images.unsplash.com/photo-1626761191319-46513cdbe16f?q=80&w=500&auto=format&fit=crop" },
-  { id: 12, title: "Top Gun", rating: "8.2", year: "2022", img: "https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=500&auto=format&fit=crop" },
-  { id: 13, title: "Whiplash", rating: "8.5", year: "2014", img: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=500&auto=format&fit=crop" },
-  { id: 14, title: "Pulp Fiction", rating: "8.9", year: "1994", img: "https://images.unsplash.com/photo-1594909122845-11baa439b7bf?q=80&w=500&auto=format&fit=crop" },
-  { id: 15, title: "The Prestige", rating: "8.5", year: "2006", img: "https://images.unsplash.com/photo-1478479405421-ce83c92fb3ba?q=80&w=500&auto=format&fit=crop" },
-  { id: 16, title: "Seven", rating: "8.6", year: "1995", img: "https://images.unsplash.com/photo-1509248961158-e54f6934749c?q=80&w=500&auto=format&fit=crop" },
-  { id: 17, title: "Fight Club", rating: "8.8", year: "1999", img: "https://images.unsplash.com/photo-1585647347384-2593bc35786b?q=80&w=500&auto=format&fit=crop" },
-  { id: 18, title: "Goodfellas", rating: "8.7", year: "1990", img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=500&auto=format&fit=crop" },
-  { id: 19, title: "The Revenant", rating: "8.0", year: "2015", img: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=500&auto=format&fit=crop" },
-  { id: 20, title: "Parasite", rating: "8.5", year: "2019", img: "https://images.unsplash.com/photo-1594908900066-3f47337549d8?q=80&w=500&auto=format&fit=crop" }
-];
+type RecommendationPayload = {
+  recommendations: Array<{
+    movie: CarouselMovie;
+  }>;
+};
 
-const Home = () => {
+type ModalId = "profile" | "password" | "feedback" | null;
+
+const backgroundVideoUrl =
+  import.meta.env.VITE_HOME_BACKGROUND_VIDEO ||
+  "https://cdn.coverr.co/videos/coverr-a-dark-cinema-room-1569769474010?download=1080p";
+
+function ModalShell({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
   return (
-    /* ROOT: Added flex-col and overflow-x-hidden to prevent horizontal scrolling bugs */
+    <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/70 p-4">
+      <div className="w-full max-w-lg rounded-[var(--radius)] border border-border/20 bg-background/95 p-6 shadow-2xl backdrop-blur-2xl">
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="text-xl font-black italic text-foreground">{title}</h2>
+          <button
+            onClick={onClose}
+            className="rounded-full border border-border/20 px-4 py-2 text-xs font-black uppercase tracking-[0.3em] text-muted-foreground hover:border-primary/40"
+          >
+            Close
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export default function HomePage() {
+  const navigate = useNavigate();
+  const { user, loading, setSessionUser } = useAuth();
+  const [popularMovies, setPopularMovies] = useState<CarouselMovie[]>([]);
+  const [topRatedMovies, setTopRatedMovies] = useState<CarouselMovie[]>([]);
+  const [recommendedMovies, setRecommendedMovies] = useState<CarouselMovie[]>([]);
+  const [searchValue, setSearchValue] = useState("");
+  const [searchResults, setSearchResults] = useState<CarouselMovie[]>([]);
+  const [modal, setModal] = useState<ModalId>(null);
+  const [busy, setBusy] = useState(true);
+  const [passwordState, setPasswordState] = useState({
+    currentPassword: "",
+    newPassword: "",
+    status: "",
+  });
+  const [feedbackState, setFeedbackState] = useState({
+    message: "",
+    rating: 5,
+    status: "",
+  });
+
+  const fetchHomeData = useCallback(async () => {
+    if (!user) return;
+
+    setBusy(true);
+
+    try {
+      const [popularResponse, topRatedResponse, recommendationResponse] =
+        await Promise.all([
+          apiGet<ApiResponse<CarouselMovie[]>>("/movies/discover", {
+            category: "popular",
+          }),
+          apiGet<ApiResponse<CarouselMovie[]>>("/movies/discover", {
+            category: "top_rated",
+          }),
+          apiGet<ApiResponse<RecommendationPayload>>("/movies/recommendations", {
+            username: user.username,
+          }).catch(() => null),
+        ]);
+
+      setPopularMovies(popularResponse.data);
+      setTopRatedMovies(topRatedResponse.data);
+      setRecommendedMovies(
+        recommendationResponse?.data?.recommendations?.map((item) => item.movie) ||
+          [],
+      );
+    } finally {
+      setBusy(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchHomeData();
+  }, [fetchHomeData]);
+
+  useEffect(() => {
+    if (!searchValue.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    const handle = window.setTimeout(async () => {
+      try {
+        const response = await apiGet<ApiResponse<CarouselMovie[]>>("/movies/search", {
+          query: searchValue.trim(),
+        });
+        setSearchResults(response.data);
+      } catch {
+        setSearchResults([]);
+      }
+    }, 250);
+
+    return () => window.clearTimeout(handle);
+  }, [searchValue]);
+
+  const featuredMovies = useMemo<HeroMovie[]>(
+    () => popularMovies.slice(0, 4),
+    [popularMovies],
+  );
+
+  const openMovie = useCallback(
+    async (movieId: number) => {
+      if (!user) return;
+      setSearchValue("");
+      setSearchResults([]);
+
+      apiPost("/movies/whenclicked", {
+        username: user.username,
+        movie: movieId,
+      }).catch(() => {});
+
+      navigate(`/movies/${movieId}`);
+    },
+    [navigate, user],
+  );
+
+  const handleLogout = useCallback(async () => {
+    await apiGet("/users/logout").catch(() => null);
+    setSessionUser(null);
+    navigate("/login");
+  }, [navigate, setSessionUser]);
+
+  const handlePasswordSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setPasswordState((previous) => ({ ...previous, status: "Saving..." }));
+
+    try {
+      await apiPatch("/users/password", {
+        currentPassword: passwordState.currentPassword,
+        newPassword: passwordState.newPassword,
+      });
+      setPasswordState({
+        currentPassword: "",
+        newPassword: "",
+        status: "Password updated successfully.",
+      });
+    } catch (error) {
+      setPasswordState((previous) => ({
+        ...previous,
+        status: error instanceof Error ? error.message : "Password update failed.",
+      }));
+    }
+  };
+
+  const handleFeedbackSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setFeedbackState((previous) => ({ ...previous, status: "Sending..." }));
+
+    try {
+      await apiPost("/users/feedback", {
+        message: feedbackState.message,
+        rating: feedbackState.rating,
+        category: "experience",
+      });
+      setFeedbackState({
+        message: "",
+        rating: 5,
+        status: "Feedback submitted. Thank you.",
+      });
+    } catch (error) {
+      setFeedbackState((previous) => ({
+        ...previous,
+        status: error instanceof Error ? error.message : "Feedback failed.",
+      }));
+    }
+  };
+
+  if (loading || busy || !user) {
+    return <LoadingScreen label="Warming up your home screen..." />;
+  }
+
+  return (
     <div className="dark min-h-screen bg-background text-foreground overflow-x-hidden flex flex-col font-sans antialiased">
-      <Navbar />
-      
-      <main className="relative flex flex-col w-full">
-        {/* HERO SECTION */}
-        <section className="relative h-[85vh] md:h-[92vh] w-full overflow-hidden flex-shrink-0">
-          <MovieHero />
-          
-          {/* THE SHADE: Fades into the dark background */}
-          <div className="absolute inset-x-0 bottom-0 h-32 md:h-64 bg-gradient-to-t from-background via-background/80 to-transparent z-10 pointer-events-none" />
+      <div className="fixed inset-0 z-0 overflow-hidden">
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="h-full w-full object-cover opacity-15"
+          src={backgroundVideoUrl}
+        />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_transparent_0%,_var(--background)_70%)]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/20 via-background/60 to-background" />
+      </div>
+
+      <Navbar
+        user={user}
+        searchValue={searchValue}
+        onSearchChange={setSearchValue}
+        searchResults={searchResults}
+        onSelectMovie={openMovie}
+        onOpenRooms={() => navigate("/rooms")}
+        onOpenProfile={() => setModal("profile")}
+        onOpenPassword={() => setModal("password")}
+        onOpenFeedback={() => setModal("feedback")}
+        onLogout={handleLogout}
+      />
+
+      <main className="relative z-10 flex flex-col">
+        <section className="relative h-[86vh] md:h-[92vh] w-full overflow-hidden">
+          <MovieHero movies={featuredMovies} onSelect={openMovie} />
+          <div className="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-background via-background/80 to-transparent z-10 pointer-events-none" />
         </section>
 
-        {/* CONTENT LAYER: Removed horizontal padding here so carousels can control their own padding and bleed to the edges */}
         <section className="relative z-20 -mt-16 md:-mt-24 pb-32 flex flex-col w-full">
-          {/* Enforced items-start so components inside align to the left */}
           <div className="flex flex-col gap-20 md:gap-28 w-full items-start">
-            <MovieCarousel 
-              title="Now Trending" 
-              category="trending" 
-              movies={TRENDING_MOVIES} 
+            {recommendedMovies.length > 0 && (
+              <MovieCarousel
+                title="For Your Taste"
+                category="personal"
+                movies={recommendedMovies}
+                onMovieSelect={openMovie}
+              />
+            )}
+            <MovieCarousel
+              title="Now Trending"
+              category="popular"
+              movies={popularMovies}
+              onMovieSelect={openMovie}
             />
-            <MovieCarousel 
-              title="Top Recommendations" 
-              category="top_rated" 
-              movies={TOP_RATED_MOVIES} 
+            <MovieCarousel
+              title="Top Rated"
+              category="top_rated"
+              movies={topRatedMovies}
+              onMovieSelect={openMovie}
             />
           </div>
         </section>
       </main>
-      
-      {/* Decorative Floor Glow: Uses primary color from global CSS */}
-      <div className="fixed bottom-0 w-full h-px bg-primary shadow-2xl opacity-20 pointer-events-none z-50" />
+
+      {modal === "profile" && (
+        <ModalShell title="Profile" onClose={() => setModal(null)}>
+          <div className="flex items-center gap-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground font-black uppercase text-lg">
+              {(user.avatar || user.fullName).slice(0, 2)}
+            </div>
+            <div>
+              <div className="text-xl font-black text-foreground">{user.fullName}</div>
+              <div className="text-sm text-muted-foreground">@{user.username}</div>
+              <div className="text-sm text-muted-foreground">{user.email}</div>
+            </div>
+          </div>
+        </ModalShell>
+      )}
+
+      {modal === "password" && (
+        <ModalShell title="Change Password" onClose={() => setModal(null)}>
+          <form className="space-y-4" onSubmit={handlePasswordSubmit}>
+            <input
+              type="password"
+              placeholder="Current password"
+              value={passwordState.currentPassword}
+              onChange={(event) =>
+                setPasswordState((previous) => ({
+                  ...previous,
+                  currentPassword: event.target.value,
+                }))
+              }
+              className="w-full rounded-xl border border-border/20 bg-card/30 px-4 py-3 outline-none"
+            />
+            <input
+              type="password"
+              placeholder="New password"
+              value={passwordState.newPassword}
+              onChange={(event) =>
+                setPasswordState((previous) => ({
+                  ...previous,
+                  newPassword: event.target.value,
+                }))
+              }
+              className="w-full rounded-xl border border-border/20 bg-card/30 px-4 py-3 outline-none"
+            />
+            <button className="w-full rounded-full bg-primary px-5 py-3 text-primary-foreground text-[10px] font-black uppercase tracking-[0.35em]">
+              Save Password
+            </button>
+            {passwordState.status && (
+              <div className="text-sm text-muted-foreground">{passwordState.status}</div>
+            )}
+          </form>
+        </ModalShell>
+      )}
+
+      {modal === "feedback" && (
+        <ModalShell title="Feedback" onClose={() => setModal(null)}>
+          <form className="space-y-4" onSubmit={handleFeedbackSubmit}>
+            <select
+              value={feedbackState.rating}
+              onChange={(event) =>
+                setFeedbackState((previous) => ({
+                  ...previous,
+                  rating: Number(event.target.value),
+                }))
+              }
+              className="w-full rounded-xl border border-border/20 bg-card/30 px-4 py-3 outline-none"
+            >
+              {[5, 4, 3, 2, 1].map((value) => (
+                <option key={value} value={value}>
+                  {value} / 5
+                </option>
+              ))}
+            </select>
+            <textarea
+              value={feedbackState.message}
+              onChange={(event) =>
+                setFeedbackState((previous) => ({
+                  ...previous,
+                  message: event.target.value,
+                }))
+              }
+              placeholder="Tell us what would make the product better."
+              className="min-h-36 w-full rounded-xl border border-border/20 bg-card/30 px-4 py-3 outline-none"
+            />
+            <button className="w-full rounded-full bg-primary px-5 py-3 text-primary-foreground text-[10px] font-black uppercase tracking-[0.35em]">
+              Send Feedback
+            </button>
+            {feedbackState.status && (
+              <div className="text-sm text-muted-foreground">{feedbackState.status}</div>
+            )}
+          </form>
+        </ModalShell>
+      )}
     </div>
   );
-};
-
-export default Home;
+}

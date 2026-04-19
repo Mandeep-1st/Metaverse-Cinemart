@@ -1,7 +1,9 @@
 import { Router } from "express";
 import {
+    discoverMovies,
     getMovieDetails,
     getRecommendedMovies,
+    getRelatedMovies,
     getUserPreference,
     searchMovie,
     seedInDatabase,
@@ -11,16 +13,24 @@ import {
     handleWhenRoom,
     initUserPreference
 } from "../controllers/movie.controller";
+import {
+    createMovieComment,
+    listMovieComments,
+} from "../controllers/movieComment.controller";
 import { verifyJwt } from "../middlewares/auth.middleware";
 
 const router: Router = Router();
 
 router.get("/search", searchMovie)
+router.get("/discover", discoverMovies)
 router.get("/recommendations", getRecommendedMovies)
+router.get("/:tmdbId/comments", listMovieComments)
+router.post("/:tmdbId/comments", verifyJwt, createMovieComment)
+router.get("/:tmdbId/related", getRelatedMovies)
 router.get("/:tmdbId", getMovieDetails)
 
 // Admin Routes
-router.post("/seed", seedInDatabase)
+router.post("/seed", verifyJwt, seedInDatabase)
 
 // User Preference Routes
 router.post("/preference/init", initUserPreference) // Smart Init

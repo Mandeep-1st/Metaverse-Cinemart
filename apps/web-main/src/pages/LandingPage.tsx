@@ -50,7 +50,7 @@ const LandingPage = () => {
                 boxShadow: "var(--shadow-lg)" 
               }}
               whileTap={{ scale: 0.9 }}
-              onClick={() => navigate('/home')}
+              onClick={() => navigate('/login')}
               className="bg-primary text-primary-foreground px-12 py-5 rounded-full font-black uppercase text-[12px] tracking-widest shadow-md border border-white/10 transition-all"
             >
               Get Started →

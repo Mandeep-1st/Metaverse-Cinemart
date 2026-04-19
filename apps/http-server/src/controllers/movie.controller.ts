@@ -39,6 +39,31 @@ const getMovieDetails = asyncHandler(async (req: any, res: Response) => {
     res.status(200).json(new ApiResponse(200, movie, "Movie details fetched successfully"))
 })
 
+const discoverMovies = asyncHandler(async (req: any, res: Response) => {
+    const category = (req.query.category as string) || "popular";
+    const page = Number(req.query.page || 1);
+
+    const movies = await TMDBService.discoverMovies(category, page);
+
+    return res.status(200).json(
+        new ApiResponse(200, movies, "Movies fetched successfully")
+    );
+})
+
+const getRelatedMovies = asyncHandler(async (req: any, res: Response) => {
+    const { tmdbId } = req.params;
+
+    if (!tmdbId) {
+        throw new ApiError(400, "Movie ID is required")
+    }
+
+    const movies = await TMDBService.getRelatedMovies(tmdbId);
+
+    return res.status(200).json(
+        new ApiResponse(200, movies, "Related movies fetched successfully")
+    );
+})
+
 //post -> api/v1/movies/seed (ADMIN ONLY)
 const seedInDatabase = asyncHandler(async (req: any, res: Response) => {
     if (req.user.role != "admin") {
@@ -108,7 +133,9 @@ const handleWhenRoom = asyncHandler(async (req: any, res: Response) => trackInte
 
 export {
     seedInDatabase,
+    discoverMovies,
     getMovieDetails,
+    getRelatedMovies,
     searchMovie,
     getUserPreference,
     initUserPreference,   // EXPORTED

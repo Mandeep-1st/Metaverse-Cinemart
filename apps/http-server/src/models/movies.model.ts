@@ -11,7 +11,12 @@ const ImageSchema = new Schema({
 const VideoSchema = new Schema({
     key: { type: String, required: true },
     url: { type: String },
+    embedUrl: { type: String },
     site: { type: String, required: true },
+    name: { type: String },
+    type: { type: String },
+    official: { type: Boolean },
+    published_at: { type: Date },
 }, { _id: false });
 
 const GenreSchema = new Schema({
@@ -65,7 +70,26 @@ export interface IMovie extends Document {
     title: string;
     overview: string;
     images: { poster: string; backdrop?: string; logo?: string };
-    video?: { key: string; site: string, url: string };
+    video?: {
+        key: string;
+        site: string;
+        url: string;
+        embedUrl?: string;
+        name?: string;
+        type?: string;
+        official?: boolean;
+        published_at?: Date;
+    };
+    videos?: Array<{
+        key: string;
+        site: string;
+        url: string;
+        embedUrl?: string;
+        name?: string;
+        type?: string;
+        official?: boolean;
+        published_at?: Date;
+    }>;
     genres: { id: number; name: string }[];
     keywords: { id: number; name: string }[];
     credits: {
@@ -84,6 +108,7 @@ const MovieSchema = new Schema<IMovie>(
         overview: { type: String },
         images: { type: ImageSchema, required: true },
         video: { type: VideoSchema },
+        videos: { type: [VideoSchema], default: [] },
         genres: { type: [GenreSchema], default: [] },
         keywords: { type: [KeywordSchema], default: [] },
         credits: {
