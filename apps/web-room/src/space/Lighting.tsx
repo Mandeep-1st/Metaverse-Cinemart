@@ -55,11 +55,7 @@ export function Lighting({ activeZone }: { activeZone: ZoneId | null }) {
   return (
     <>
       <ambientLight intensity={0.52} color="#ffe7cf" />
-      <hemisphereLight
-        color="#57739a"
-        groundColor="#120a08"
-        intensity={0.9}
-      />
+      <hemisphereLight color="#57739a" groundColor="#120a08" intensity={0.9} />
       <directionalLight
         position={[3.5, 10, 4]}
         intensity={0.85}

@@ -1,7 +1,12 @@
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { AIDoor, BigTV, ChairsAndPeople, Cupboards } from "../components/TheatreProps";
+import {
+  AIDoor,
+  BigTV,
+  ChairsAndPeople,
+  Cupboards,
+} from "../components/TheatreProps";
 import type { ZoneId } from "./types";
 
 function PropAccentLight({
@@ -68,10 +73,7 @@ export function InteractiveObjects({
 }) {
   return (
     <>
-      <BigTV
-        position={[0, 0.9, -12]}
-        isActive={activeZone === "north"}
-      />
+      <BigTV position={[0, 0.9, -12]} isActive={activeZone === "north"} />
       <ChairsAndPeople
         position={[-12, 0.9, 0]}
         rotation={[0, Math.PI / 2, 0]}

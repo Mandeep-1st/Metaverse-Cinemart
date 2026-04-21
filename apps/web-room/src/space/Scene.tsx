@@ -6,7 +6,12 @@ import { MovementControls } from "./Controls";
 import { Environment } from "./Environment";
 import { InteractiveObjects } from "./InteractiveObjects";
 import { Lighting } from "./Lighting";
-import type { ControlsApiRef, GuestPresence, PlayerSnapshot, ZoneId } from "./types";
+import type {
+  ControlsApiRef,
+  GuestPresence,
+  PlayerSnapshot,
+  ZoneId,
+} from "./types";
 
 type CinemaSceneProps = {
   movementEnabled: boolean;

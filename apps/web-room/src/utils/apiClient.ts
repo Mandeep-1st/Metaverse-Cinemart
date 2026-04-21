@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
-const httpServerUrl =
-  import.meta.env.VITE_HTTP_SERVER_URL;
+const httpServerUrl = import.meta.env.VITE_HTTP_SERVER_URL || "";
 
-const apiBaseUrl = `${httpServerUrl.replace(/\/$/, "")}/api/v1`;
+const apiBaseUrl = httpServerUrl
+  ? `${httpServerUrl.replace(/\/$/, "")}/api/v1`
+  : "/api/v1";
 
 export async function apiRequest<T>(
   path: string,

@@ -168,8 +168,16 @@ export function MovementControls({
     }
 
     const speed = 8;
-    const rawX = clamp(object.position.x + vx * speed * delta, -GRID_HALF, GRID_HALF);
-    const rawZ = clamp(object.position.z + vz * speed * delta, -GRID_HALF, GRID_HALF);
+    const rawX = clamp(
+      object.position.x + vx * speed * delta,
+      -GRID_HALF,
+      GRID_HALF,
+    );
+    const rawZ = clamp(
+      object.position.z + vz * speed * delta,
+      -GRID_HALF,
+      GRID_HALF,
+    );
 
     if (!isInsideAnyCollider(rawX, rawZ)) {
       object.position.x = rawX;
