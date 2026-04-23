@@ -631,27 +631,7 @@ export function ProfilePanel({
                   </div>
                 </div>
 
-                <div className="absolute bottom-[-24px] left-6 sm:left-8">
-                  <div className="rounded-[28px] border border-white/10 bg-[#171410]/95 p-3 shadow-[0_25px_50px_rgba(0,0,0,0.35)]">
-                    <div className="flex items-center gap-3">
-                      <CinemaAvatar
-                        name={user.fullName}
-                        avatarId={user.avatar}
-                        size="lg"
-                      />
-                      <div>
-                        <div className="text-[10px] font-black uppercase tracking-[0.32em] text-primary">
-                          Active Avatar
-                        </div>
-                        <div className="mt-1 text-sm text-white/60">
-                          Separate from your profile photo
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="relative grid gap-4 border-t border-white/10 px-6 pb-6 pt-16 sm:grid-cols-2 xl:grid-cols-4 xl:px-8">
+                <div className="relative grid gap-4 border-t border-white/10 px-6 pb-6 pt-8 sm:grid-cols-2 xl:grid-cols-4 xl:px-8">
                   <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
                     <div className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">
                       Username

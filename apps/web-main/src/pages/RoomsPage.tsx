@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import AppFooter from "../components/home/AppFooter";
 import LoadingScreen from "../components/common/LoadingScreen";
 import { useAuth } from "../context/AuthContext";
+import { useAppShell } from "../hooks/useAppShell";
 import { apiGet, apiPost } from "../utils/apiClient";
 
 type ApiResponse<T> = {
@@ -48,6 +50,7 @@ type CreateRoomResponse = {
 export default function RoomsPage() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  const { openCommandPalette, openProfilePanel } = useAppShell();
   const [rooms, setRooms] = useState<RoomItem[]>([]);
   const [busy, setBusy] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -144,8 +147,8 @@ export default function RoomsPage() {
   }
 
   return (
-    <div className="dark min-h-screen bg-background text-foreground px-6 py-10 md:px-12">
-      <div className="mx-auto max-w-7xl">
+    <div className="dark min-h-screen bg-background text-foreground overflow-x-hidden">
+      <div className="mx-auto max-w-7xl px-6 py-10 md:px-12">
         <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div>
             <div className="text-primary text-[10px] font-black uppercase tracking-[0.45em]">
@@ -221,6 +224,13 @@ export default function RoomsPage() {
           )}
         </div>
       </div>
+
+      <AppFooter
+        activeAction="rooms"
+        onOpenCommandPalette={openCommandPalette}
+        onOpenRooms={() => navigate("/rooms")}
+        onOpenProfile={() => openProfilePanel("overview")}
+      />
 
       {showCreate && (
         <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/75 p-4">

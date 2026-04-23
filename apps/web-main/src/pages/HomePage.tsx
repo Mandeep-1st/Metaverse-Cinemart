@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "../components/home/Navbar";
 import MovieHero, { type HeroMovie } from "../components/home/MovieHero";
 import MovieCarousel, {
   type CarouselMovie,
 } from "../components/home/MovieCarousel";
+import AppFooter from "../components/home/AppFooter";
 import LoadingScreen from "../components/common/LoadingScreen";
 import { useAuth } from "../context/AuthContext";
 import { useAppShell } from "../hooks/useAppShell";
@@ -108,19 +108,13 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-gradient-to-b from-background/20 via-background/60 to-background" />
       </div>
 
-      <Navbar
-        onOpenCommandPalette={openCommandPalette}
-        onOpenRooms={() => navigate("/rooms")}
-        onOpenProfile={() => openProfilePanel("overview")}
-      />
-
       <main className="relative z-10 flex flex-col">
         <section className="relative h-[86vh] md:h-[92vh] w-full overflow-hidden">
           <MovieHero movies={featuredMovies} onSelect={openMovie} />
           <div className="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-background via-background/80 to-transparent z-10 pointer-events-none" />
         </section>
 
-        <section className="relative z-20 -mt-16 md:-mt-24 pb-32 flex flex-col w-full">
+        <section className="relative z-20 -mt-16 md:-mt-24 pb-16 flex flex-col w-full">
           <div className="flex flex-col gap-20 md:gap-28 w-full items-start">
             {recommendedMovies.length > 0 && (
               <MovieCarousel
@@ -144,6 +138,12 @@ export default function HomePage() {
             />
           </div>
         </section>
+
+        <AppFooter
+          onOpenCommandPalette={openCommandPalette}
+          onOpenRooms={() => navigate("/rooms")}
+          onOpenProfile={() => openProfilePanel("overview")}
+        />
       </main>
     </div>
   );

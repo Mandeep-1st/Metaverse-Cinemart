@@ -17,6 +17,7 @@ import {
   AIDoor,
 } from "../components/TheatreProps";
 import { AiModePanel, type AiModeId } from "@repo/ui/components/ai-mode-panel";
+import { LoadingSpinner } from "@repo/ui/components/loading-spinner";
 import { MovieRichDetails } from "@repo/ui/components/movie-rich-details";
 import { PersistentCommentsPanel } from "@repo/ui/components/persistent-comments-panel";
 import { SocketProvider, useSocket } from "../context/SocketProvider";
@@ -150,6 +151,14 @@ type SearchMovieResult = {
   };
 };
 
+type RoomLookup = {
+  roomId: string;
+  movieTmdbId: number;
+  aiMode: boolean;
+};
+
+type ViewerStatus = "loading" | "ready" | "guest";
+
 const DEFAULT_WEB_MAIN_URL = "http://localhost:5173";
 
 function toYouTubeEmbed(urlOrKey: string) {
@@ -195,6 +204,45 @@ function toEmbeddableVideoUrl(
   if (video.url) return toYouTubeEmbed(video.url);
   if (video.key) return toYouTubeEmbed(video.key);
   return "";
+}
+
+function RoomStatusScreen({
+  eyebrow,
+  title,
+  description,
+  loading = false,
+  actions,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  loading?: boolean;
+  actions?: React.ReactNode;
+}) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-neutral-950 px-6 py-10 text-white">
+      <div className="w-full max-w-2xl rounded-[36px] border border-white/10 bg-[linear-gradient(135deg,rgba(244,182,61,0.12),rgba(255,255,255,0.03))] p-8 shadow-[0_30px_90px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:p-10">
+        <div className="text-[10px] font-black uppercase tracking-[0.38em] text-primary">
+          {eyebrow}
+        </div>
+        <h1 className="mt-5 text-3xl font-black uppercase tracking-tight sm:text-4xl">
+          {title}
+        </h1>
+        <p className="mt-4 max-w-xl text-sm leading-7 text-white/65">
+          {description}
+        </p>
+
+        {loading && (
+          <div className="mt-6 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/75">
+            <LoadingSpinner className="h-4 w-4" />
+            Working on it...
+          </div>
+        )}
+
+        {actions && <div className="mt-8 flex flex-wrap gap-3">{actions}</div>}
+      </div>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -1635,9 +1683,11 @@ function RichMovieInfoOverlay({
 function RoomChatDrawer({
   visible,
   currentUser,
+  viewerStatus,
 }: {
   visible: boolean;
   currentUser: ViewerUser | null;
+  viewerStatus: ViewerStatus;
 }) {
   const socket = useSocket();
   const [messages, setMessages] = useState<any[]>([]);
@@ -1721,11 +1771,13 @@ function RoomChatDrawer({
               value={input}
               onChange={(event) => setInput(event.target.value)}
               placeholder={
-                currentUser
+                viewerStatus === "loading"
+                  ? "Checking your main-app session..."
+                  : currentUser
                   ? "Send a live room message"
                   : "Sign in through the main app to chat"
               }
-              disabled={!currentUser}
+              disabled={viewerStatus === "loading" || !currentUser}
               className="flex-1 rounded-full border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-white/35 disabled:opacity-50"
             />
             <button
@@ -1739,12 +1791,19 @@ function RoomChatDrawer({
                 });
                 setInput("");
               }}
-              disabled={!currentUser || !input.trim()}
+              disabled={viewerStatus === "loading" || !currentUser || !input.trim()}
               className="rounded-full bg-primary px-4 py-3 text-[10px] font-black uppercase tracking-[0.3em] text-primary-foreground disabled:opacity-50"
             >
               Send
             </button>
           </div>
+
+          {viewerStatus === "loading" && (
+            <div className="mt-3 flex items-center gap-2 text-xs text-white/45">
+              <LoadingSpinner className="h-3.5 w-3.5" />
+              Restoring your signed-in session before chat unlocks.
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -2748,9 +2807,11 @@ function CreateRoomOverlay({
 
 function PersistentCreateRoomOverlay({
   currentUser,
+  viewerStatus,
   onCreate,
 }: {
   currentUser: ViewerUser | null;
+  viewerStatus: ViewerStatus;
   onCreate: (roomId: string, movieId: number, aiMode: boolean) => void;
 }) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -2833,7 +2894,20 @@ function PersistentCreateRoomOverlay({
           Search, configure, and generate a persistent share link for the room.
         </div>
 
-        {!currentUser && (
+        {viewerStatus === "loading" && (
+          <div className="mt-6 rounded-3xl border border-white/10 bg-card/20 p-6">
+            <div className="flex items-center gap-3 text-sm font-black uppercase tracking-[0.35em] text-primary">
+              <LoadingSpinner className="h-4 w-4" />
+              Restoring Session
+            </div>
+            <div className="mt-3 text-sm text-muted-foreground leading-relaxed">
+              Checking your saved account before we decide whether this page needs
+              a sign-in prompt.
+            </div>
+          </div>
+        )}
+
+        {viewerStatus === "guest" && !currentUser && (
           <div className="mt-6 rounded-3xl border border-dashed border-border/30 bg-card/20 p-6">
             <div className="text-sm font-black uppercase tracking-[0.35em] text-primary">
               Sign In Required
@@ -2851,7 +2925,7 @@ function PersistentCreateRoomOverlay({
           </div>
         )}
 
-        {currentUser && !createdRoom && (
+        {viewerStatus === "ready" && currentUser && !createdRoom && (
           <>
             <div className="mt-4 flex gap-3 items-center">
               <input
@@ -2991,7 +3065,7 @@ function PersistentCreateRoomOverlay({
           </>
         )}
 
-        {currentUser && createdRoom && (
+        {viewerStatus === "ready" && currentUser && createdRoom && (
           <div className="mt-8 rounded-[var(--radius)] border border-primary/20 bg-primary/5 p-6">
             <div className="text-primary text-[10px] font-black uppercase tracking-[0.35em]">
               Share Link Ready
@@ -3136,8 +3210,7 @@ export const Space = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   // Add this ref in Space component body
   const tvOverlayRef = useRef<HTMLDivElement>(null);
-  const aiRoomMode = searchParams.get("ai") === "1";
-  const movieId = useMemo(() => {
+  const searchMovieId = useMemo(() => {
     const v = searchParams.get("movieId");
     if (!v) return null;
     const n = Number(v);
@@ -3149,7 +3222,16 @@ export const Space = () => {
     return v ? String(v) : null;
   }, [searchParams]);
 
-  const { movie } = useMovieDetails(movieId);
+  const [resolvedRoom, setResolvedRoom] = useState<RoomLookup | null>(null);
+  const [roomResolutionStatus, setRoomResolutionStatus] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  const [roomResolutionError, setRoomResolutionError] = useState("");
+
+  const movieId = searchMovieId ?? resolvedRoom?.movieTmdbId ?? null;
+  const aiRoomMode =
+    searchParams.get("ai") === "1" || Boolean(resolvedRoom?.aiMode);
+  const { movie, status: movieStatus } = useMovieDetails(movieId);
   const availableVideos = useMemo(() => {
     const rawVideos =
       movie?.videos && movie.videos.length > 0
@@ -3205,10 +3287,63 @@ export const Space = () => {
 
   const [nearZone, setNearZone] = useState<ZoneId | null>(null);
   const [viewer, setViewer] = useState<ViewerUser | null>(null);
+  const [viewerStatus, setViewerStatus] = useState<ViewerStatus>("loading");
   const initializedAiOverlayRef = useRef(false);
+  const webMainUrl = import.meta.env.VITE_WEB_MAIN_URL || DEFAULT_WEB_MAIN_URL;
 
   const movementEnabled = mode !== "create-room" && !activeOverlay;
   const overlayOpen = Boolean(activeOverlay);
+
+  useEffect(() => {
+    if (!roomId || searchMovieId) {
+      setResolvedRoom(null);
+      setRoomResolutionStatus("idle");
+      setRoomResolutionError("");
+      return;
+    }
+
+    let cancelled = false;
+    setRoomResolutionStatus("loading");
+    setRoomResolutionError("");
+
+    apiGet<ApiResponse<RoomLookup>>(`/rooms/${roomId}`)
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
+
+        setResolvedRoom(response.data);
+        setRoomResolutionStatus("ready");
+
+        const nextParams = new URLSearchParams({
+          roomId: response.data.roomId,
+          movieId: String(response.data.movieTmdbId),
+        });
+
+        if (response.data.aiMode) {
+          nextParams.set("ai", "1");
+        }
+
+        setSearchParams(nextParams);
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+
+        setResolvedRoom(null);
+        setRoomResolutionStatus("error");
+        setRoomResolutionError(
+          error instanceof Error
+            ? error.message
+            : "We couldn't restore that room link.",
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [roomId, searchMovieId, setSearchParams]);
 
   useEffect(() => {
     const storedAvatar = window.localStorage.getItem("metaverse-room-avatar");
@@ -3216,9 +3351,12 @@ export const Space = () => {
       setCachedAvatarId(storedAvatar);
     }
 
+    setViewerStatus("loading");
+
     apiGet<ApiResponse<{ user: ViewerUser }>>("/users/me")
       .then((response) => {
         setViewer(response.data.user);
+        setViewerStatus("ready");
         if (response.data.user.avatar) {
           window.localStorage.setItem(
             "metaverse-room-avatar",
@@ -3227,7 +3365,10 @@ export const Space = () => {
           setCachedAvatarId(response.data.user.avatar);
         }
       })
-      .catch(() => setViewer(null));
+      .catch(() => {
+        setViewer(null);
+        setViewerStatus("guest");
+      });
   }, []);
 
   useEffect(() => {
@@ -3295,6 +3436,96 @@ export const Space = () => {
     [setSearchParams],
   );
 
+  const isResolvingRoomLink =
+    Boolean(roomId) && !searchMovieId && roomResolutionStatus === "loading";
+  const roomLinkResolutionFailed =
+    Boolean(roomId) && !searchMovieId && roomResolutionStatus === "error";
+  const theatreLoading =
+    (mode === "watchparty" || mode === "solo") &&
+    movieId !== null &&
+    (movieStatus === "loading" || (movieStatus === "idle" && !movie));
+
+  if (isResolvingRoomLink) {
+    return (
+      <RoomStatusScreen
+        eyebrow="Opening Room"
+        title="Restoring your theatre link"
+        description="Fetching the saved movie and room settings so you land in the room instead of the creation flow."
+        loading
+      />
+    );
+  }
+
+  if (roomLinkResolutionFailed) {
+    return (
+      <RoomStatusScreen
+        eyebrow="Room Unavailable"
+        title="We couldn't open this room yet"
+        description={
+          roomResolutionError ||
+          "This link is missing the movie details we need, and the room lookup did not recover them."
+        }
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="rounded-full border border-white/10 bg-white/5 px-5 py-3 text-[10px] font-black uppercase tracking-[0.3em] text-white"
+            >
+              Try Again
+            </button>
+            <button
+              type="button"
+              onClick={() => window.location.assign(`${webMainUrl}/rooms`)}
+              className="rounded-full bg-primary px-5 py-3 text-[10px] font-black uppercase tracking-[0.3em] text-primary-foreground"
+            >
+              Open Main App
+            </button>
+          </>
+        }
+      />
+    );
+  }
+
+  if (theatreLoading) {
+    return (
+      <RoomStatusScreen
+        eyebrow="Loading Theatre"
+        title="Bringing the cinema online"
+        description="Pulling the movie details, theatre overlays, and room data before we drop you into the scene."
+        loading
+      />
+    );
+  }
+
+  if ((mode === "watchparty" || mode === "solo") && movieStatus === "error") {
+    return (
+      <RoomStatusScreen
+        eyebrow="Movie Missing"
+        title="We couldn't load this room's movie"
+        description="The room opened, but the movie details request failed. Retry once or jump back to the main app."
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="rounded-full border border-white/10 bg-white/5 px-5 py-3 text-[10px] font-black uppercase tracking-[0.3em] text-white"
+            >
+              Reload Room
+            </button>
+            <button
+              type="button"
+              onClick={() => window.location.assign(`${webMainUrl}/rooms`)}
+              className="rounded-full bg-primary px-5 py-3 text-[10px] font-black uppercase tracking-[0.3em] text-primary-foreground"
+            >
+              Open Rooms
+            </button>
+          </>
+        }
+      />
+    );
+  }
+
   const world = (
     <>
       <CinemaScene
@@ -3327,6 +3558,7 @@ export const Space = () => {
       <div className="relative w-screen h-screen bg-neutral-900 overflow-hidden flex items-center justify-center">
         <PersistentCreateRoomOverlay
           currentUser={viewer}
+          viewerStatus={viewerStatus}
           onCreate={createRoom}
         />
       </div>
@@ -3346,6 +3578,7 @@ export const Space = () => {
           <RoomChatDrawer
             visible={activeOverlay === null}
             currentUser={viewer}
+            viewerStatus={viewerStatus}
           />
         </>
       )}
