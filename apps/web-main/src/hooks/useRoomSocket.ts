@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { config } from "@repo/config";
 
 type ChatMessage = {
   id: string;
@@ -15,8 +16,6 @@ type VoteState = {
   count: number;
 };
 
-const defaultWsUrl = import.meta.env.VITE_WS_URL || "ws://localhost:8080";
-
 export function useRoomSocket(roomId: string | null) {
   const [connected, setConnected] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -26,8 +25,7 @@ export function useRoomSocket(roomId: string | null) {
   useEffect(() => {
     if (!roomId) return;
 
-    const wsUrl = import.meta.env.VITE_WS_URL || defaultWsUrl;
-    const socket = new WebSocket(wsUrl);
+    const socket = new WebSocket(config.socketUrl);
     socketRef.current = socket;
 
     socket.addEventListener("open", () => {

@@ -1,11 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { buildApiUrl } from "@repo/config";
+
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-
-const httpServerUrl = import.meta.env.VITE_HTTP_SERVER_URL || "";
-
-const apiBaseUrl = httpServerUrl
-  ? `${httpServerUrl.replace(/\/$/, "")}/api/v1`
-  : "/api/v1";
 
 export async function apiRequest<T>(
   path: string,
@@ -30,7 +26,7 @@ export async function apiRequest<T>(
       )
       .join("&");
 
-  const url = `${apiBaseUrl}${path}${queryString ? `?${queryString}` : ""}`;
+  const url = `${buildApiUrl(path)}${queryString ? `?${queryString}` : ""}`;
 
   const res = await fetch(url, {
     method,

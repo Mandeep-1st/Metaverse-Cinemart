@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@repo/config": "workspace:*",
     "@repo/db": "workspace:*",
     "@repo/tailwind-config": "workspace:*",
     "@repo/types": "workspace:*",

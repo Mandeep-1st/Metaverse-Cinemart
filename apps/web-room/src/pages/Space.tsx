@@ -6,6 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { buildApiUrl, config } from "@repo/config";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { PointerLockControls } from "@react-three/drei";
@@ -159,7 +160,7 @@ type RoomLookup = {
 
 type ViewerStatus = "loading" | "ready" | "guest";
 
-const DEFAULT_WEB_MAIN_URL = "http://localhost:5173";
+const DEFAULT_WEB_MAIN_URL = config.webMainUrl;
 
 function toYouTubeEmbed(urlOrKey: string) {
   if (urlOrKey.startsWith("http")) {
@@ -2703,9 +2704,7 @@ function CreateRoomOverlay({
       setStatus("ready");
     } catch (e: unknown) {
       setStatus("error");
-      const base =
-        import.meta.env.VITE_HTTP_SERVER_URL || "http://localhost:8001";
-      const attempted = `${base.replace(/\/$/, "")}/api/v1/movies/search?query=${encodeURIComponent(q)}`;
+      const attempted = `${buildApiUrl("/movies/search")}?query=${encodeURIComponent(q)}`;
       const msg = e instanceof Error ? e.message : String(e);
       setErrorText(`${msg}\nAttempted: ${attempted}`);
     }
@@ -2882,7 +2881,7 @@ function PersistentCreateRoomOverlay({
     }
   }, [aiMode, maxParticipants, roomLabel, selectedMovie, visibility]);
 
-  const webMainUrl = import.meta.env.VITE_WEB_MAIN_URL || DEFAULT_WEB_MAIN_URL;
+                const webMainUrl = config.webMainUrl || DEFAULT_WEB_MAIN_URL;
 
   return (
     <div className="absolute inset-0 z-[210] flex items-center justify-center bg-black/70 p-6">
@@ -3289,7 +3288,7 @@ export const Space = () => {
   const [viewer, setViewer] = useState<ViewerUser | null>(null);
   const [viewerStatus, setViewerStatus] = useState<ViewerStatus>("loading");
   const initializedAiOverlayRef = useRef(false);
-  const webMainUrl = import.meta.env.VITE_WEB_MAIN_URL || DEFAULT_WEB_MAIN_URL;
+                const webMainUrl = config.webMainUrl || DEFAULT_WEB_MAIN_URL;
 
   const movementEnabled = mode !== "create-room" && !activeOverlay;
   const overlayOpen = Boolean(activeOverlay);

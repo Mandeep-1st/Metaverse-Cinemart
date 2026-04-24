@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Bot, Link2, Play } from "lucide-react";
+import { config } from "@repo/config";
 import { MovieRichDetails } from "@repo/ui/components/movie-rich-details";
 import { PersistentCommentsPanel } from "@repo/ui/components/persistent-comments-panel";
 import LoadingScreen from "../components/common/LoadingScreen";
@@ -87,7 +88,7 @@ type MovieComment = {
   createdAt: string;
 };
 
-const webRoomUrl = "https://metaverse-cinemart-web-room.vercel.app";
+const webRoomUrl = config.webRoomUrl ?? "";
 
 const toEmbedUrl = (video?: MovieVideo | null) => {
   if (!video) return "";

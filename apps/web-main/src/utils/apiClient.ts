@@ -1,10 +1,6 @@
+import { buildApiUrl } from "@repo/config";
+
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-
-
-const httpServerUrl =
-  import.meta.env.VITE_HTTP_SERVER_URL;
-
-const apiBaseUrl = `${httpServerUrl.replace(/\/$/, "")}/api/v1`;
 
 type ApiRequestOptions = {
   method?: HttpMethod;
@@ -156,7 +152,7 @@ export async function apiRequest<T>(
       )
       .join("&");
 
-  const url = `${apiBaseUrl}${path}${queryString ? `?${queryString}` : ""}`;
+  const url = `${buildApiUrl(path)}${queryString ? `?${queryString}` : ""}`;
 
   let res: Response;
 
