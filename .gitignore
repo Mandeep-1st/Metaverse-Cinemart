@@ -39,3 +39,5 @@ yarn-error.log*
 apps/http-server/public/temp/*.jpg
 
 .vscode
+
+PROJECT_DOCUMENTATION.md

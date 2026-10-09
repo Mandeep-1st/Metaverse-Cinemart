@@ -4,7 +4,7 @@ import { sendMail } from './utils/mailerService';
 import axios from 'axios';
 import http from 'http'
 
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 8002;
 http.createServer((req, res) => {
     res.writeHead(200);
     res.end('Misc Worker is Alive and running!\n');
